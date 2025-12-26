@@ -6,7 +6,7 @@ import re
 import json
 import plotly.express as px
 import google.generativeai as genai
-from db_config import get_db ,get_active_session
+from db_config import get_db,get_active_session ,get_active_session
 from firebase_admin import firestore
 
 # --- Helper Functions ---
