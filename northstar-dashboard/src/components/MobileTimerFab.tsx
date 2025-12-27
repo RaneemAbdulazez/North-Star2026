@@ -8,22 +8,32 @@ export function MobileTimerFab() {
     const [elapsed, setElapsed] = useState(0);
     const [stopping, setStopping] = useState(false);
 
+    // DEBUG: Force a mock session if none exists to prove UI visibility
+    // Remove this after verifying UI
+    const debugSession = !activeSession ? {
+        task_name: "DEBUG: No Active Session Found",
+        start_time: Date.now() - 10000
+    } : activeSession;
+
+    // Use displaySession for everything (Logic + Display)
+    const session = activeSession || debugSession;
+
     useEffect(() => {
-        if (!activeSession) {
+        if (!session) {
             setElapsed(0);
             return;
         }
 
         // Calculate initial elapsed to prevent 00:00 jump
         const now = Date.now();
-        const start = activeSession.start_time;
+        const start = session.start_time;
         setElapsed(Math.floor((now - start) / 1000));
 
         const interval = setInterval(() => {
             setElapsed(Math.floor((Date.now() - start) / 1000));
         }, 1000);
         return () => clearInterval(interval);
-    }, [activeSession]);
+    }, [session]);
 
     const handleStop = async (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent drawer opening if we click stop
@@ -44,20 +54,7 @@ export function MobileTimerFab() {
         }
     };
 
-    // DEBUG: Force a mock session if none exists to prove UI visibility
-    // Remove this after verifying UI
-    const debugSession = !activeSession ? {
-        task_name: "DEBUG: No Active Session Found",
-        start_time: Date.now() - 10000
-    } : activeSession;
-
-    // Use debugSession for rendering
-    const displaySession = activeSession || debugSession;
-
     if (loading) return null;
-    // Always render for now to debug
-
-
 
     const formatTime = (sec: number) => {
         const h = Math.floor(sec / 3600);
@@ -65,6 +62,9 @@ export function MobileTimerFab() {
         const s = sec % 60;
         return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
+
+    // Use session (debug or real) for rendering check
+    if (!session) return null;
 
     return (
         <AnimatePresence>
@@ -74,17 +74,19 @@ export function MobileTimerFab() {
                 exit={{ y: 100, opacity: 0 }}
                 className="fixed bottom-6 right-6 z-50 md:hidden"
             >
-                <div className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl border border-blue-500/30 p-2 pl-4 pr-2 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-                    <div className="relative">
-                        <div className="w-8 h-8 rounded-full border-2 border-blue-500 flex items-center justify-center animate-pulse-slow">
-                            <Timer size={16} className="text-blue-400" />
+                <div className="flex items-center gap-4 bg-[#0F172A]/90 backdrop-blur-xl border border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)] p-2 pl-2 pr-4 rounded-full min-w-[280px] md:min-w-0">
+                    <div className="relative shrink-0">
+                        <div className="absolute inset-0 bg-blue-500 blur-lg opacity-40 rounded-full animate-pulse-slow"></div>
+                        <div className="w-12 h-12 rounded-full bg-slate-900 border-2 border-blue-400 flex items-center justify-center relative z-10">
+                            <Timer size={20} className="text-blue-400" />
                         </div>
                     </div>
-                    <div className="mr-2">
-                        <div className="text-[9px] uppercase tracking-wider text-blue-300 font-bold leading-none mb-0.5">
-                            {activeSession.task_name?.split(' ').slice(0, 2).join(' ')}...
+
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[10px] uppercase tracking-wider text-blue-300 font-bold mb-0.5 truncate">
+                            {session.task_name || "Focus Session"}
                         </div>
-                        <div className="text-sm font-mono font-bold text-white leading-none">
+                        <div className="text-xl font-mono font-bold text-white leading-none shadow-black drop-shadow-md">
                             {formatTime(elapsed)}
                         </div>
                     </div>
@@ -92,13 +94,12 @@ export function MobileTimerFab() {
                     <button
                         onClick={handleStop}
                         disabled={stopping}
-                        className="w-10 h-10 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-500 transition-colors"
+                        className="w-10 h-10 shrink-0 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-500 transition-all active:scale-95"
                     >
-                        {stopping ? <div className="w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <Square size={14} fill="currentColor" />}
+                        {stopping ? <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <Square size={16} fill="currentColor" />}
                     </button>
                 </div>
             </motion.div>
         </AnimatePresence>
     );
 }
-
