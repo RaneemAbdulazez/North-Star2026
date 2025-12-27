@@ -1,29 +1,63 @@
 import { motion } from 'framer-motion';
-import { History, Calendar, Clock, Search } from 'lucide-react';
+import { History, Calendar, Clock, Search, Zap, Briefcase } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 
-interface WorkLog {
+interface LogItem {
     id: string;
-    project_name: string;
-    date: { seconds: number };
-    hours: number;
+    type: 'work' | 'habit';
+    name: string;
+    date: { seconds: number } | Date;
+    duration: string;
+    rawDate: number; // for sorting
     notes?: string;
-    pillar_id?: string;
 }
 
 export default function TimeLogs() {
-    const [logs, setLogs] = useState<WorkLog[]>([]);
+    const [logs, setLogs] = useState<LogItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const q = query(collection(db, "work_logs"), orderBy("date", "desc"), limit(50));
-                const querySnapshot = await getDocs(q);
-                const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorkLog));
-                setLogs(data);
+                // Fetch Work Logs
+                const workQ = query(collection(db, "work_logs"), orderBy("date", "desc"), limit(50));
+                const workSnap = await getDocs(workQ);
+                const workLogs = workSnap.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        type: 'work',
+                        name: data.project_name || 'Unknown Project',
+                        date: data.date,
+                        duration: `${data.hours}h`,
+                        rawDate: data.date?.seconds || 0,
+                        notes: data.notes
+                    } as LogItem;
+                });
+
+                // Fetch Habit Logs
+                // Note: Habit logs might use 'completed_at' instead of 'date'
+                const habitQ = query(collection(db, "habit_logs"), orderBy("completed_at", "desc"), limit(50));
+                const habitSnap = await getDocs(habitQ);
+                const habitLogs = habitSnap.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        type: 'habit',
+                        name: data.habit_name || 'Unknown Habit',
+                        date: data.completed_at,
+                        duration: `${data.actual_minutes}m`, // Show minutes for habits
+                        rawDate: data.completed_at?.seconds || 0,
+                        notes: '-'
+                    } as LogItem;
+                });
+
+                // Merge and Sort
+                const allLogs = [...workLogs, ...habitLogs].sort((a, b) => b.rawDate - a.rawDate);
+                setLogs(allLogs);
+
             } catch (error) {
                 console.error("Error loading logs:", error);
             } finally {
@@ -33,8 +67,10 @@ export default function TimeLogs() {
         fetchLogs();
     }, []);
 
-    const formatDate = (seconds: number) => {
-        return new Date(seconds * 1000).toLocaleDateString('en-US', {
+    const formatDate = (date: { seconds: number } | Date) => {
+        if (!date) return '-';
+        const d = 'seconds' in date ? new Date(date.seconds * 1000) : date;
+        return d.toLocaleDateString('en-US', {
             month: 'short', day: 'numeric', year: 'numeric'
         });
     };
@@ -52,10 +88,10 @@ export default function TimeLogs() {
                         <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
                             <History size={24} className="text-purple-400" />
                         </div>
-                        Time Logs
+                        Activity History
                     </h1>
                     <p className="text-slate-400 mt-2 ml-14 max-w-lg">
-                        A history of your deep work sessions.
+                        A combined history of your projects and habits.
                     </p>
                 </div>
 
@@ -75,9 +111,9 @@ export default function TimeLogs() {
                         <thead>
                             <tr className="border-b border-white/5 bg-white/5">
                                 <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Date</th>
-                                <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Project</th>
+                                <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Activity</th>
+                                <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Type</th>
                                 <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Duration</th>
-                                <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Notes</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -97,25 +133,29 @@ export default function TimeLogs() {
                                         <td className="p-5">
                                             <div className="flex items-center gap-2 text-slate-300 text-sm font-mono">
                                                 <Calendar size={14} className="text-slate-500" />
-                                                {formatDate(log.date?.seconds)}
+                                                {formatDate(log.date)}
                                             </div>
                                         </td>
                                         <td className="p-5">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                                                <span className="font-medium text-white text-sm">{log.project_name}</span>
+                                                <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] ${log.type === 'work' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                <span className="font-medium text-white text-sm">{log.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5">
+                                            <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md w-fit border ${log.type === 'work'
+                                                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                    : 'bg-green-500/10 text-green-400 border-green-500/20'
+                                                }`}>
+                                                {log.type === 'work' ? <Briefcase size={12} /> : <Zap size={12} />}
+                                                {log.type === 'work' ? 'Project' : 'Habit'}
                                             </div>
                                         </td>
                                         <td className="p-5">
                                             <div className="flex items-center gap-2 text-slate-300 text-sm font-mono bg-slate-900/50 px-2 py-1 rounded-lg w-fit border border-white/5">
                                                 <Clock size={14} className="text-slate-500" />
-                                                {log.hours}h
+                                                {log.duration}
                                             </div>
-                                        </td>
-                                        <td className="p-5">
-                                            <span className="text-slate-400 text-sm line-clamp-1 group-hover:text-slate-300 transition-colors">
-                                                {log.notes || "-"}
-                                            </span>
                                         </td>
                                     </motion.tr>
                                 ))

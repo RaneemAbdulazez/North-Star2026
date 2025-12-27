@@ -47,7 +47,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (type === 'work_log') {
             // Validate required fields for work_log
-            if (!data.project_id || !data.hours) {
+            if (!data.project_id || data.hours === undefined) {
                 return res.status(400).json({ error: 'Missing required work_log fields' });
             }
 
@@ -65,7 +65,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         }
         else if (type === 'habit_log') {
             // Validate required fields for habit_log
-            if (!data.habit_id || !data.actual_minutes) {
+            if (!data.habit_id || data.actual_minutes === undefined) {
                 return res.status(400).json({ error: 'Missing required habit_log fields' });
             }
 

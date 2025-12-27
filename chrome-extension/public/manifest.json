@@ -11,7 +11,8 @@
     "host_permissions": [
         "http://localhost:8501/*",
         "https://*.streamlit.app/*",
-        "https://firestore.googleapis.com/*"
+        "https://firestore.googleapis.com/*",
+        "https://north-star2026.vercel.app/*"
     ],
     "background": {
         "service_worker": "assets/background.js",

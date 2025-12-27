@@ -21,6 +21,11 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
+chrome.runtime.onStartup.addListener(() => {
+    const DASHBOARD_URL = "https://north-star2026.vercel.app/";
+    chrome.tabs.create({ url: DASHBOARD_URL });
+});
+
 // 2. Alarm Handler
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "check_inactivity") {
@@ -32,7 +37,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                 // is a good enough proxy for "distracted" in this strict context.
                 chrome.notifications.create({
                     type: "basic",
-                    iconUrl: "icons/icon48.png",
+                    iconUrl: chrome.runtime.getURL("icons/icon48.png"),
                     title: "Where is your focus?",
                     message: "Don't let the 240 hours slip away. Start a tracker!",
                     priority: 1
@@ -43,7 +48,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     else if (alarm.name === "daily_planning_9pm") {
         chrome.notifications.create({
             type: "basic",
-            iconUrl: "icons/icon48.png",
+            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
             title: "NorthStar Planning",
             message: "Time to set your Daily Path for tomorrow. Stay on track!",
             priority: 2,
@@ -101,6 +106,24 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 const data = await response.json();
                 sendResponse({ success: true, data });
 
+            } else if (request.action === 'test_notification') {
+                console.log("Received test_notification request");
+
+                chrome.notifications.create({
+                    type: "basic",
+                    iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                    title: "Test Notification",
+                    message: "This is how your NorthStar reminders will look!",
+                    priority: 2
+                }, (notificationId) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Notification received error:", chrome.runtime.lastError);
+                    } else {
+                        console.log("Notification created ID:", notificationId);
+                    }
+                });
+
+                sendResponse({ success: true });
             } else {
                 sendResponse({ status: 'ignored' });
             }

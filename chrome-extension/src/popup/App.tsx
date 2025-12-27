@@ -257,6 +257,13 @@ function App() {
                 >
                     Dashboard <ExternalLink size={10} />
                 </a>
+                <span className="text-slate-800 mx-2">|</span>
+                <button
+                    onClick={() => chrome.runtime.sendMessage({ action: 'test_notification' })}
+                    className="text-[10px] text-slate-600 hover:text-blue-400 transition-colors"
+                >
+                    Test Alert
+                </button>
             </div>
         </div>
     );
