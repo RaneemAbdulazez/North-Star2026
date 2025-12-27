@@ -21,6 +21,27 @@ export default function Settings() {
     // const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [clearing, setClearing] = useState(false);
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+    useEffect(() => {
+        const handler = (e: any) => {
+            e.preventDefault();
+            setInstallPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstall = () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        installPrompt.userChoice.then((choiceResult: any) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            }
+            setInstallPrompt(null);
+        });
+    };
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -181,6 +202,23 @@ export default function Settings() {
                     </div>
                 </Section>
 
+                {/* App Installation */}
+                <Section title="Install App" icon={<Monitor size={18} />}>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="text-white font-medium text-sm">Install NorthStar</h4>
+                            <p className="text-xs text-slate-500">Add to your home screen for the best experience.</p>
+                        </div>
+                        <button
+                            onClick={handleInstall}
+                            disabled={!installPrompt}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Download size={14} /> {installPrompt ? "Install App" : "Installed"}
+                        </button>
+                    </div>
+                </Section>
+
                 {/* Notifications */}
                 <Section title="Notifications" icon={<Bell size={18} />}>
                     <div className="space-y-4">
@@ -245,7 +283,6 @@ export default function Settings() {
                         </div>
                     </div>
                 </Section>
-
             </div>
         </div>
     );
