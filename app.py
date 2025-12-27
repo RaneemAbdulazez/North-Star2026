@@ -346,6 +346,108 @@ def get_strategic_context():
     """
     return context
 
+def render_strategy_tab():
+    st.title("Strategy Map 🗺️")
+    st.caption("North Star 2026")
+    
+    st.markdown("## 🌟 **Vision**")
+    st.markdown("> ### To become the #1 AI for Finance Expert for Mid-sized companies, backed by academic depth and strategic partnerships.")
+    st.divider()
+
+    st.subheader("The 3 Pillars of Execution")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.info("**Pillar 1: The Cleanup (Debt)**")
+        st.markdown("- Clear Debt (WeSecure, Privacy).\n- **No new WIP until cleared.**")
+    with col2:
+        st.success("**Pillar 2: The Growth Engine**")
+        st.markdown("- Marla Course Launch.\n- LinkedIn Personal Brand.")
+    with col3:
+        st.info("**Pillar 3: The Vertical**")
+        st.markdown("- Finance Studies.\n- High-Ticket Finance Offer V1.")
+    st.divider()
+
+    with st.expander("📅 Quarterly Roadmap (2026)", expanded=True):
+        tab1, tab2, tab3, tab4 = st.tabs(["Q1: Cleanup & Launch", "Q2: Foundation", "Q3: Sales", "Q4: Scale"])
+        with tab1:
+            st.subheader("Q1: Cleanup & Launch")
+            st.write("**Focus:** Tech Debt & Course Launch (MVP). KPI: 10 Course Sales.")
+        with tab2:
+            st.subheader("Q2: Foundation")
+            st.write("**Focus:** Finance Studies & Offer V1. KPI: $2k Passive Income.")
+        with tab3:
+            st.subheader("Q3: Sales")
+            st.write("**Focus:** High-Ticket Sales. KPI: $6k/mo.")
+        with tab4:
+            st.subheader("Q4: Scale")
+            st.write("**Focus:** Sustainability. KPI: $10k/mo.")
+    st.divider()
+
+    st.error("❌ **The 'NOT-TO-DO' List**")
+    st.markdown("""
+    - ❌ Start new project before finishing old ones.
+    - ❌ Change Niche (Stay in AI for Finance).
+    - ❌ Barter deals.
+    - ❌ Work on Weekends.
+    - ❌ Social Media before 12 PM.
+    """)
+
+def render_quarterly_dashboard():
+    st.title("Quarterly Performance 📈")
+    st.caption("Plan vs. Execution (2026)")
+    
+    df_logs, _ = get_all_data()
+    if not df_logs.empty:
+         df_logs['date'] = pd.to_datetime(df_logs['date'], utc=True)
+         
+    now = datetime.datetime.now(datetime.timezone.utc)
+    
+    q1, q2, q3, q4 = st.tabs(["Q1: Cleanup", "Q2: Foundation", "Q3: Sales", "Q4: Scale"])
+    
+    quarters = {
+        "Q1": {"tab": q1, "start": "2026-01-01", "end": "2026-03-31", "goals": "Goals: Clear Tech Debt + Launch Course.\nKPIs: 10 Sales.", "budget": 480},
+        "Q2": {"tab": q2, "start": "2026-04-01", "end": "2026-06-30", "goals": "Goals: Finance Studies + Offer Design.\nKPIs: Offer Deck Ready.", "budget": 480},
+         "Q3": {"tab": q3, "start": "2026-07-01", "end": "2026-09-30", "goals": "Goals: High-Ticket Sales System.\nKPIs: $6k/mo MRR.", "budget": 480},
+         "Q4": {"tab": q4, "start": "2026-10-01", "end": "2026-12-31", "goals": "Goals: Sustainability.\nKPIs: $10k/mo MRR.", "budget": 480}
+    }
+    
+    for q_name, q_data in quarters.items():
+        with q_data["tab"]:
+            start_dt = pd.Timestamp(q_data["start"]).replace(tzinfo=datetime.timezone.utc)
+            end_dt = pd.Timestamp(q_data["end"]).replace(tzinfo=datetime.timezone.utc)
+            
+            if start_dt <= now <= end_dt:
+                st.success("📍 **We Are Here**")
+            
+            if not df_logs.empty:
+                mask = (df_logs['date'] >= start_dt) & (df_logs['date'] <= end_dt)
+                df_q = df_logs[mask]
+            else:
+                df_q = pd.DataFrame()
+                
+            total_hours = df_q['hours'].sum() if not df_q.empty else 0
+            completion_rate = (total_hours / q_data['budget']) * 100
+            most_active = df_q.groupby("project_name")['hours'].sum().idxmax() if not df_q.empty else "N/A"
+            
+            col_m1, col_m2, col_m3 = st.columns(3)
+            col_m1.metric("Total Hours", f"{total_hours:.1f}", f"Target: {q_data['budget']}")
+            col_m2.metric("Most Active", most_active)
+            col_m3.metric("Completion Rate", f"{completion_rate:.1f}%")
+            
+            st.divider()
+            col_left, col_right = st.columns(2)
+            with col_left:
+                st.subheader("The Strategy (Plan)")
+                st.info(q_data['goals'])
+                st.markdown(f"**Budget:** {q_data['budget']} Hours")
+            with col_right:
+                st.subheader("The Execution (Reality)")
+                if not df_q.empty:
+                    fig = px.pie(df_q, values='hours', names='project_name', title=f"{q_name} Hours Distribution")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("No data logged for this period yet.")
+
 def render_ai_coach():
     st.title("AI Business Strategist 🤖")
     st.caption("Your Ruthless CFO & Strategy Coach")
