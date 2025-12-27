@@ -90,7 +90,7 @@ function App() {
         setActiveItemType(item.type);
 
         try {
-            await fetch(API_URL, {
+            const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -103,10 +103,15 @@ function App() {
                     }
                 })
             });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Server Error");
+            }
         } catch (e) {
             console.error("Failed to start session:", e);
             setIsRunning(false); // revert
-            alert("Connection error. Could not start timer.");
+            alert(`Connection error: ${(e as Error).message}`);
         }
     };
 
