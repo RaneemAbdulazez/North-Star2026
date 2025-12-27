@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Square, ArrowLeft, MoreHorizontal, Play, Timer, CheckCircle2 } from 'lucide-react';
+import { Square, ArrowLeft, MoreHorizontal, Timer, CheckCircle2 } from 'lucide-react';
 import { useActiveSession } from '../hooks/useActiveSession';
 
 export default function FocusMode() {
