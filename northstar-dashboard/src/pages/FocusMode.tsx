@@ -10,8 +10,6 @@ export default function FocusMode() {
     const [elapsed, setElapsed] = useState(0);
     const [stopping, setStopping] = useState(false);
 
-    // Redirect removed for debugging/UX - Show "Idle" state instead
-
     // Timer Logic
     useEffect(() => {
         if (!activeSession) return;
@@ -72,16 +70,11 @@ export default function FocusMode() {
 
                     <button
                         onClick={() => navigate('/')}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-blue-900/20"
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 px-8 rounded-xl transition-all border border-slate-700 hover:border-slate-500"
                     >
                         Go to Dashboard
                     </button>
 
-                    {/* Debug Info */}
-                    <div className="mt-12 p-4 border border-white/5 rounded-lg bg-slate-900/50 text-[10px] text-slate-500 font-mono text-left">
-                        <div>DEBUG: No Active Session found in Firestore.</div>
-                        <div>Doc ID: null</div>
-                    </div>
                 </div>
             </div>
         );

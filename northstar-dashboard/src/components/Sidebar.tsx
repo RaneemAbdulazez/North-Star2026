@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wand2, Briefcase, BarChart3, ChevronRight, Target, History, Settings, Activity } from 'lucide-react';
+import { LayoutDashboard, Wand2, Briefcase, BarChart3, ChevronRight, Target, History, Settings, Activity, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useActiveSession } from '../hooks/useActiveSession';
 
 function cn(...inputs: (string | undefined | null | false)[]) {
     return twMerge(clsx(inputs));
@@ -62,6 +63,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
                 <nav className="flex flex-col gap-1 px-4 flex-1">
                     <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" onClick={onClose} />
+
+                    {/* Focus Mode Link with Live Indicator */}
+                    <ActiveSessionNavItem onClick={onClose} />
+
                     <NavItem to="/daily-path" icon={<Wand2 size={20} />} label="Daily Path" onClick={onClose} />
 
                     <div className="my-4 px-2">
@@ -126,6 +131,64 @@ function NavItem({ to, icon, label, onClick }: { to: string; icon: React.ReactNo
                         {icon}
                     </motion.span>
                     <span className="relative z-10 font-medium">{label}</span>
+
+                    {isActive && (
+                        <motion.div
+                            initial={{ opacity: 0, x: -5 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="ml-auto"
+                        >
+                            <ChevronRight size={14} className="text-blue-500" />
+                        </motion.div>
+                    )}
+                </>
+            )}
+        </NavLink>
+    );
+}
+
+function ActiveSessionNavItem({ onClick }: { onClick?: () => void }) {
+    const { activeSession } = useActiveSession();
+
+    return (
+        <NavLink
+            to="/focus"
+            onClick={onClick}
+            className={({ isActive }) => cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-300 group relative overflow-hidden",
+                isActive
+                    ? "text-white bg-blue-600/10 border border-blue-500/20"
+                    : "text-slate-400 hover:text-blue-200 hover:bg-white/5"
+            )}
+        >
+            {({ isActive }) => (
+                <>
+                    {isActive && (
+                        <motion.div
+                            layoutId="activeNav"
+                            className="absolute inset-0 bg-blue-500/5"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        />
+                    )}
+
+                    <motion.span
+                        whileHover={{ y: -2 }}
+                        className={cn("relative z-10 transition-colors duration-300", isActive ? "text-blue-400" : "group-hover:text-blue-300")}
+                    >
+                        <Zap size={20} className={activeSession ? "fill-blue-500 text-blue-500 animate-pulse" : ""} />
+                    </motion.span>
+
+                    <span className="relative z-10 font-medium flex items-center gap-2">
+                        Focus Mode
+                        {activeSession && (
+                            <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            </span>
+                        )}
+                    </span>
 
                     {isActive && (
                         <motion.div
