@@ -5,41 +5,60 @@ import * as admin from 'firebase-admin';
 
 // 1. Safety Check: Ensure no hardcoded keys
 // The following variables MUST be set in Vercel Environment Variables.
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-// Debug Log (Safety Check) - Remove in production if strict logs are needed
-console.log("Firebase Admin Init Check:", {
-    hasProjectId: !!projectId,
-    hasClientEmail: !!clientEmail,
-    hasPrivateKey: !!privateKey,
-    projectIdValue: projectId // Safe to log ID
-});
-
-if (!projectId || !clientEmail || !privateKey) {
-    console.error(
-        "⚠️ FIREBASE ADMIN ERROR: Missing Environment Variables.\n" +
-        "Ensure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set in Vercel."
-    );
-} else {
-    const firebaseAdminConfig = {
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, '\n'), // Critical Fix for newline chars
-    };
-
-    if (!admin.apps.length) {
-        try {
-            admin.initializeApp({
-                credential: admin.credential.cert(firebaseAdminConfig),
-            });
-            // console.log("✅ Firebase Admin Initialized Successfully");
-        } catch (error) {
-            console.error("❌ Firebase Admin Initialization Failed:", error);
-        }
+const getFirebaseAdmin = () => {
+    if (admin.apps.length > 0) {
+        return admin.app();
     }
-}
 
-export const db = admin.firestore();
-export const auth = admin.auth();
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    if (!projectId || !clientEmail || !privateKey) {
+        throw new Error(
+            "⚠️ FIREBASE ADMIN ERROR: Missing Environment Variables. " +
+            "Ensure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set in Vercel."
+        );
+    }
+
+    return admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId,
+            clientEmail,
+            privateKey: privateKey.replace(/\\n/g, '\n'),
+        }),
+    });
+};
+
+// Lazy exports to prevent top-level crashes
+export const getDb = () => {
+    try {
+        const app = getFirebaseAdmin();
+        return app.firestore();
+    } catch (e) {
+        console.error("Failed to initialize DB:", e);
+        throw e;
+    }
+};
+
+export const getAuth = () => {
+    try {
+        const app = getFirebaseAdmin();
+        return app.auth();
+    } catch (e) {
+        console.error("Failed to initialize Auth:", e);
+        throw e;
+    }
+};
+
+// For backward compatibility (tries to init immediately, might fail)
+// Better to migrate consumers to use getDb()
+// But to avoid breaking other files immediately, we can try-catch:
+let _db: FirebaseFirestore.Firestore | undefined;
+try {
+    _db = getDb();
+} catch (e) {
+    // Ignore top-level error to allow module load
+}
+export const db = _db as FirebaseFirestore.Firestore;
+

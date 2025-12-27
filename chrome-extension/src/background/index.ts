@@ -70,7 +70,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     (async () => {
         try {
             if (request.action === 'log_work') {
-                const API_URL = "https://north-star2026-q54mxx1iv-raneemabdulazezs-projects.vercel.app/api/time-logs/create";
+                const API_URL = "https://north-star2026.vercel.app/api/time-logs/create";
 
                 const response = await fetch(API_URL, {
                     method: 'POST',

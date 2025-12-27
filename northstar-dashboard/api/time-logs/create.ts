@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db } from '../../src/lib/firebaseAdmin.js';
+import { getDb } from '../../src/lib/firebaseAdmin.js';
 
 // Helper to handle CORS
 const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) => {
@@ -23,6 +23,9 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
+        // Initialize DB lazily to catch config errors here instead of crashing the module
+        const db = getDb();
+
         const { type, data } = req.body;
 
         if (!type || !data) {
@@ -66,9 +69,6 @@ async function handler(req: VercelRequest, res: VercelResponse) {
             });
 
             // 2. Increment Total
-            // Note: In Admin SDK, FieldValue is available from top-level `firebase-admin/firestore`
-            // But usually `db` instance from getFirestore doesn't have it directly attached as a static method of the instance.
-            // We need to import FieldValue.
             const { FieldValue } = await import('firebase-admin/firestore');
 
             const habitRef = db.collection('habits').doc(data.habit_id);
@@ -87,7 +87,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     } catch (error: any) {
         console.error("API Error:", error);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({
+            error: error.message,
+            details: "Check Vercel Function Logs for ENV var issues."
+        });
     }
 }
 
