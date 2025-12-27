@@ -3,7 +3,7 @@ import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, Chevron
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { DonutChart } from '../components/DonutChart'; // Assuming we can move/reuse this or use simple SVG
+// import { DonutChart } from '../components/DonutChart';
 
 interface Pillar {
     id: string;

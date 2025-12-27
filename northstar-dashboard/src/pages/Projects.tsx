@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, Plus, Trash2, Folder, ArrowRight, Loader2, Check, Shield, Lock, Brain, AlertTriangle, Pencil, PartyPopper } from 'lucide-react';
+import { Briefcase, Plus, Trash2, Folder, ArrowRight, Loader2, Check, Brain, Pencil } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDocs, updateDoc } from 'firebase/firestore';
@@ -183,14 +183,7 @@ export default function Projects() {
         }
     };
 
-    const getPriorityColor = (p: string) => {
-        switch (p) {
-            case "High": return "text-red-400 bg-red-500/10 border-red-500/20";
-            case "Medium": return "text-yellow-400 bg-yellow-500/10 border-yellow-500/20";
-            case "Low": return "text-blue-400 bg-blue-500/10 border-blue-500/20";
-            default: return "text-slate-400";
-        }
-    };
+    // const getPriorityColor = (p: string) => { ... }
 
     const updateAnswer = (index: number, val: string) => {
         const newAns = [...guardianAnswers];

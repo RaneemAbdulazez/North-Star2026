@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Settings as SettingsIcon, Bell, Monitor, Lock, Database, Trash2, Save, Download, FileText, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Monitor, Database, Trash2, Download, FileText, AlertTriangle, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
@@ -18,7 +18,7 @@ export default function Settings() {
         dailyReminders: false,
         weeklyReport: true
     });
-    const [loading, setLoading] = useState(true);
+    // const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
     const [clearing, setClearing] = useState(false);
 
@@ -33,7 +33,7 @@ export default function Settings() {
             } catch (e) {
                 console.error("Failed to load settings", e);
             } finally {
-                setLoading(false);
+                // setLoading(false);
             }
         };
         loadSettings();

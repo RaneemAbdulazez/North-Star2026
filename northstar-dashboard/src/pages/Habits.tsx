@@ -212,9 +212,9 @@ export default function Habits() {
             <AnimatePresence>
                 {showForm && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0, mb: 0 }}
-                        animate={{ opacity: 1, height: 'auto', mb: 32 }}
-                        exit={{ opacity: 0, height: 0, mb: 0 }}
+                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        animate={{ opacity: 1, height: 'auto', marginBottom: 32 }}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                         className="overflow-hidden"
                     >
                         <form onSubmit={handleInitialSubmit} className={`bg-surface backdrop-blur-xl border ${editingId ? 'border-amber-500/30' : 'border-indigo-500/30'} rounded-3xl p-6 shadow-glass relative`}>

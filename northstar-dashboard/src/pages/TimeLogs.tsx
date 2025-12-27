@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { History, Calendar, Clock, Tag, Search } from 'lucide-react';
+import { History, Calendar, Clock, Search } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';

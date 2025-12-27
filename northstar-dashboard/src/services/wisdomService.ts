@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Use an interface for the Wisdom Item
 export interface WisdomItem {

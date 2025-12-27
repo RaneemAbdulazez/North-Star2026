@@ -52,7 +52,8 @@ export default function Analytics() {
     });
 
     const QUARTER_BUDGET = 240;
-    const DAYS_IN_QUARTER = 90;
+    // const DAYS_IN_QUARTER = 90;
+    // const daysPassed = Math.max(1, Math.floor((new Date().getTime() - new Date("2026-01-01").getTime()) / (1000 * 3600 * 24)));
 
     useEffect(() => {
         async function fetchData() {
@@ -80,7 +81,7 @@ export default function Analytics() {
                 setTotalSpent(spent);
 
                 // Burn Rate (Mocking "days passed" as roughly 30 for demo, or real calculation)
-                const daysPassed = Math.max(1, Math.floor((new Date().getTime() - new Date("2026-01-01").getTime()) / (1000 * 3600 * 24)));
+                // const daysPassed = Math.max(1, Math.floor((new Date().getTime() - new Date("2026-01-01").getTime()) / (1000 * 3600 * 24)));
                 // Using a clearer calc for demo purposes:
                 setBurnRate(Number((spent / 30).toFixed(1))); // Assuming ~30 days active
 
@@ -266,7 +267,7 @@ export default function Analytics() {
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {pillarDist.map((entry, index) => (
+                                    {pillarDist.map((_entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
