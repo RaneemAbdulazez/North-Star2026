@@ -9,93 +9,10 @@ import Habits from './pages/Habits';
 import TimeLogs from './pages/TimeLogs';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
-
-// ... (imports remain the same)
-
-// ... inside Routes ...
-<Route
-  path="/analytics"
-  element={
-    <PageWrapper>
-      <Analytics />
-    </PageWrapper>
-  }
-/>
-
-function AnimatedRoutes() {
-  const location = useLocation();
-
-  return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route
-          path="/"
-          element={
-            <PageWrapper>
-              <Dashboard />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/daily-path"
-          element={
-            <PageWrapper>
-              <DailyPath />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/projects"
-          element={
-            <PageWrapper>
-              <Projects />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/habits"
-          element={
-            <PageWrapper>
-              <Habits />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/strategy"
-          element={
-            <PageWrapper>
-              <Strategy />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/logs"
-          element={
-            <PageWrapper>
-              <TimeLogs />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <PageWrapper>
-              <Settings />
-            </PageWrapper>
-          }
-        />
-        <Route
-          path="/analytics"
-          element={
-            <PageWrapper>
-              <Analytics />
-            </PageWrapper>
-          }
-        />
-      </Routes>
-    </AnimatePresence>
-  );
-}
+import FocusMode from './pages/FocusMode';
+import { Menu } from 'lucide-react';
+import { useState } from 'react';
+import { MobileTimerFab } from './components/MobileTimerFab';
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -110,12 +27,6 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
     </motion.div>
   );
 }
-
-import { Menu } from 'lucide-react';
-import { useState } from 'react';
-import { MobileTimerFab } from './components/MobileTimerFab';
-
-// ... (PageWrapper and AnimatedRoutes remain same)
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -145,18 +56,60 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Mobile Timer Floating Button - Moved outside main to avoid overflow clipping */}
+      {/* Mobile Timer Floating Button - MOVED TO FocusMode, but keeping here for non-focus pages if needed. 
+          Actually, User wants Focus Page strategy mainly. 
+          But regular dashboard might still need quick access? 
+          User said: "Instead of a floating widget, we want a dedicated Focus Page".
+          However, quick access from dashboard is still nice. 
+          I will keep it for now but maybe conditionally hide if on focus page (which is handled by routing anyway).
+      */}
       <MobileTimerFab />
     </div>
+  );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Focus Mode - Standalone Layout */}
+        <Route path="/focus" element={
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="h-full"
+          >
+            <FocusMode />
+          </motion.div>
+        } />
+
+        {/* Main App - With Sidebar Layout */}
+        <Route path="/*" element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
+              <Route path="/daily-path" element={<PageWrapper><DailyPath /></PageWrapper>} />
+              <Route path="/projects" element={<PageWrapper><Projects /></PageWrapper>} />
+              <Route path="/habits" element={<PageWrapper><Habits /></PageWrapper>} />
+              <Route path="/strategy" element={<PageWrapper><Strategy /></PageWrapper>} />
+              <Route path="/logs" element={<PageWrapper><TimeLogs /></PageWrapper>} />
+              <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
+              <Route path="/analytics" element={<PageWrapper><Analytics /></PageWrapper>} />
+            </Routes>
+          </Layout>
+        } />
+      </Routes>
+    </AnimatePresence>
   );
 }
 
 function App() {
   return (
     <Router>
-      <Layout>
-        <AnimatedRoutes />
-      </Layout>
+      <AppRoutes />
     </Router>
   );
 }

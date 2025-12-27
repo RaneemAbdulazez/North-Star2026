@@ -241,6 +241,17 @@ function App() {
                         >
                             <Square size={16} fill="currentColor" /> Stop & Save
                         </button>
+
+                        <div className="mt-6 pt-6 border-t border-white/5 w-full flex justify-center">
+                            <a
+                                href="https://north-star2026.vercel.app/focus"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-2 transition-colors border border-blue-500/30 px-4 py-2 rounded-lg bg-blue-500/5"
+                            >
+                                <ExternalLink size={12} /> Open Focus Mode
+                            </a>
+                        </div>
                     </div>
                 )}
             </div>
