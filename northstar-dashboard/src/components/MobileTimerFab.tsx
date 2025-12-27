@@ -44,7 +44,12 @@ export function MobileTimerFab() {
         }
     };
 
-    if (loading || !activeSession) return null;
+    // Debug logging
+    console.log("MobileTimerFab Render:", { activeSession, loading });
+
+    if (loading) return null; // Or show loading spinner
+    if (!activeSession) return null;
+
 
     const formatTime = (sec: number) => {
         const h = Math.floor(sec / 3600);

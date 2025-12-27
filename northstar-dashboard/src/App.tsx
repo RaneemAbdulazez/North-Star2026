@@ -125,7 +125,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto relative w-full">
+      <main className="flex-1 overflow-auto relative w-full pb-32 md:pb-0">
         {/* Ambient Background Gradient */}
         <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
