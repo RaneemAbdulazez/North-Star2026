@@ -53,12 +53,34 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // 3. Notification Interactions
+const DASHBOARD_URL = "https://north-star2026.vercel.app/";
+
 chrome.notifications.onClicked.addListener(() => {
-    const DASHBOARD_URL = "https://north-star2026-nkfadnvaua2hgsbpavwoec.streamlit.app/"; // Or your Next.js URL if deployed
     chrome.tabs.create({ url: DASHBOARD_URL });
 });
 
 chrome.notifications.onButtonClicked.addListener(() => {
-    const DASHBOARD_URL = "https://north-star2026-nkfadnvaua2hgsbpavwoec.streamlit.app/";
     chrome.tabs.create({ url: DASHBOARD_URL });
+});
+
+// 4. Async Message Listener (Fix for "A listener indicated an asynchronous response...")
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    // 1. Return true immediately to keep the channel open
+    // 2. Handle logic asynchronously
+    (async () => {
+        try {
+            if (request.action === 'log_work') {
+                // Example: We could move Firestore logic here in the future
+                // await db.collection('work_logs').add(request.data);
+                sendResponse({ success: true });
+            } else {
+                sendResponse({ status: 'ignored' });
+            }
+        } catch (error: any) {
+            console.error("Background Async Error:", error);
+            sendResponse({ success: false, error: error.message });
+        }
+    })();
+
+    return true; // CRITICAL: Indicates we will respond asynchronously
 });
