@@ -1,71 +1,111 @@
 // Background Service Worker
 
-// 1. Initialization
-chrome.runtime.onInstalled.addListener(() => {
+// 1. Valid URLs
+const DASHBOARD_URL = "https://north-star2026.vercel.app/";
+const DAILY_PLAN_URL = "https://north-star2026.vercel.app/daily-plan";
+const PLANNER_URL = "https://north-star2026.vercel.app/planner";
+
+// 2. Setup Alarms Helper
+const setupAlarms = () => {
     chrome.alarms.clearAll();
 
-    // A. 30-Minute Inactivity Nudge
-    chrome.alarms.create("check_inactivity", {
-        periodInMinutes: 30
-    });
-
-    // B. Daily 9 PM Planning Reminder
     const now = new Date();
-    const ninePM = new Date();
-    ninePM.setHours(21, 0, 0, 0);
-    if (now > ninePM) ninePM.setDate(ninePM.getDate() + 1);
 
-    chrome.alarms.create("daily_planning_9pm", {
-        when: ninePM.getTime(),
-        periodInMinutes: 1440 // 24 hours
+    // A. Morning Routine (9:00 AM)
+    const next9am = new Date();
+    next9am.setHours(9, 0, 0, 0);
+    if (now > next9am) next9am.setDate(next9am.getDate() + 1);
+
+    chrome.alarms.create("morning_rule", {
+        when: next9am.getTime(),
+        periodInMinutes: 1440 // Daily
     });
+
+    // B. Evening Prep (9:00 PM)
+    const next9pm = new Date();
+    next9pm.setHours(21, 0, 0, 0);
+    if (now > next9pm) next9pm.setDate(next9pm.getDate() + 1);
+
+    chrome.alarms.create("evening_rule", {
+        when: next9pm.getTime(),
+        periodInMinutes: 1440 // Daily
+    });
+
+    // C. Focus Check (Every 90 minutes)
+    chrome.alarms.create("focus_check", {
+        periodInMinutes: 90
+    });
+};
+
+// 3. Initialization Listeners
+chrome.runtime.onInstalled.addListener(() => {
+    setupAlarms();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-    const DASHBOARD_URL = "https://north-star2026.vercel.app/";
+    setupAlarms();
+    // Persist the Auto-Open Dashboard feature
     chrome.tabs.create({ url: DASHBOARD_URL });
 });
 
-// 2. Alarm Handler
+// 4. Alarm Handler
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "check_inactivity") {
-        // Check if user is tracking time
+    // A. Morning Rule
+    if (alarm.name === "morning_rule") {
+        chrome.tabs.create({ url: DAILY_PLAN_URL });
+        chrome.notifications.create({
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+            title: "Good Morning! ☀️",
+            message: "Let's review your NorthStar plan for today.",
+            priority: 2,
+            buttons: [{ title: "View Plan" }]
+        });
+    }
+    // B. Evening Rule
+    else if (alarm.name === "evening_rule") {
+        chrome.tabs.create({ url: PLANNER_URL });
+        chrome.notifications.create({
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+            title: "Evening Review 🌙",
+            message: "Time to prep for tomorrow. Plan your goals now to stay ahead!",
+            priority: 2,
+            buttons: [{ title: "Plan Tomorrow" }]
+        });
+    }
+    // C. Focus Check (90-min Rule)
+    else if (alarm.name === "focus_check") {
         chrome.storage.local.get(['activeSession'], (result) => {
+            // Only notify if NO active session
             if (!result.activeSession) {
-                // No active session? Send a gentle nudge.
-                // We could also check idle state APIs, but strict "no tracking" 
-                // is a good enough proxy for "distracted" in this strict context.
                 chrome.notifications.create({
                     type: "basic",
                     iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-                    title: "Where is your focus?",
-                    message: "Don't let the 240 hours slip away. Start a tracker!",
-                    priority: 1
+                    title: "Where is your focus? 🎯",
+                    message: "You haven't started a focus session yet. Shall we work on your 240-hour goal?",
+                    priority: 2
                 });
             }
         });
     }
-    else if (alarm.name === "daily_planning_9pm") {
-        chrome.notifications.create({
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-            title: "NorthStar Planning",
-            message: "Time to set your Daily Path for tomorrow. Stay on track!",
-            priority: 2,
-            buttons: [{ title: "Open Dashboard" }]
-        });
-    }
 });
 
-// 3. Notification Interactions
-const DASHBOARD_URL = "https://north-star2026-q54mxx1iv-raneemabdulazezs-projects.vercel.app/";
-
+// 5. Notification Interactions
 chrome.notifications.onClicked.addListener(() => {
     chrome.tabs.create({ url: DASHBOARD_URL });
 });
 
-chrome.notifications.onButtonClicked.addListener(() => {
-    chrome.tabs.create({ url: DASHBOARD_URL });
+chrome.notifications.onButtonClicked.addListener((notificationId, _buttonIndex) => {
+    // Simple logic: any button click opens relevant page. 
+    // We could differentiate by ID if needed, but they all generally point to the app.
+    if (notificationId.includes("morning")) {
+        chrome.tabs.create({ url: DAILY_PLAN_URL });
+    } else if (notificationId.includes("evening")) {
+        chrome.tabs.create({ url: PLANNER_URL });
+    } else {
+        chrome.tabs.create({ url: DASHBOARD_URL });
+    }
 });
 
 // 4. Async Message Listener (Fix for "A listener indicated an asynchronous response...")
