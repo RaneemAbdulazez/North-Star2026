@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { Play, Square, ExternalLink, Activity, ArrowRight, BookOpen } from 'lucide-react';
 
 interface TrackerItem {
@@ -104,45 +104,43 @@ function App() {
         const durationMinutes = Math.floor(elapsed / 60);
         const item = items.find(i => i.id === activeItemId);
 
-        try {
-            if (activeItemType === 'project') {
-                // Log to Work Logs
-                await addDoc(collection(db, "work_logs"), {
+        // Prepare Payload
+        let payload = {};
+        if (activeItemType === 'project') {
+            payload = {
+                type: 'work_log',
+                data: {
                     project_id: activeItemId,
                     project_name: item?.name || "Unknown",
                     hours: durationHours,
-                    focus_score: 3,
-                    date: new Date(),
-                    created_at: serverTimestamp(),
-                    source: "chrome_extension_manual"
-                });
-                // Optional: Update project spent_hours if you maintain it
-            } else {
-                // Log to Habit Logs
-                await addDoc(collection(db, "habit_logs"), {
+                    focus_score: 3
+                }
+            };
+        } else {
+            payload = {
+                type: 'habit_log',
+                data: {
                     habit_id: activeItemId,
                     habit_name: item?.name || "Unknown",
-                    completed_at: serverTimestamp(),
-                    actual_minutes: durationMinutes,
-                    source: "chrome_extension"
-                });
-
-                // Update Habit Totals (Critical for User's 240H Budget)
-                const habitRef = doc(db, "habits", activeItemId);
-                await updateDoc(habitRef, {
-                    total_actual_minutes: increment(durationMinutes)
-                });
-            }
-
-            // Cleanup & Feedback
-            chrome.storage.local.remove(['activeSession']);
-            setElapsed(0);
-            setStartTime(null);
-            setTotalSpent(prev => prev + durationHours);
-
-        } catch (e) {
-            console.error("Save failed", e);
+                    actual_minutes: durationMinutes
+                }
+            };
         }
+
+        // Send to Background
+        chrome.runtime.sendMessage({ action: 'log_work', payload }, (response) => {
+            if (response && response.success) {
+                // Cleanup & Feedback
+                chrome.storage.local.remove(['activeSession']);
+                setElapsed(0);
+                setStartTime(null);
+                setTotalSpent(prev => prev + durationHours);
+            } else {
+                console.error("Log failed:", response?.error);
+                // Show specific error to user for debugging
+                alert(`Failed to save log: ${response?.error || "Unknown error"}`);
+            }
+        });
     };
 
     const formatTime = (seconds: number) => {
@@ -252,7 +250,7 @@ function App() {
             {/* Footer */}
             <div className="p-3 bg-slate-950 flex justify-center border-t border-white/5">
                 <a
-                    href="https://north-star2026-nkfadnvaua2hgsbpavwoec.streamlit.app/"
+                    href="https://north-star2026-q54mxx1iv-raneemabdulazezs-projects.vercel.app/"
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 text-[10px] text-slate-600 hover:text-blue-400 transition-colors"

@@ -53,7 +53,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // 3. Notification Interactions
-const DASHBOARD_URL = "https://north-star2026.vercel.app/";
+const DASHBOARD_URL = "https://north-star2026-q54mxx1iv-raneemabdulazezs-projects.vercel.app/";
 
 chrome.notifications.onClicked.addListener(() => {
     chrome.tabs.create({ url: DASHBOARD_URL });
@@ -70,9 +70,23 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     (async () => {
         try {
             if (request.action === 'log_work') {
-                // Example: We could move Firestore logic here in the future
-                // await db.collection('work_logs').add(request.data);
-                sendResponse({ success: true });
+                const API_URL = "https://north-star2026-q54mxx1iv-raneemabdulazezs-projects.vercel.app/api/time-logs/create";
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(request.payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                sendResponse({ success: true, data });
+
             } else {
                 sendResponse({ status: 'ignored' });
             }
