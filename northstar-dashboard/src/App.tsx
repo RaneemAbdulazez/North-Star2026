@@ -111,18 +111,41 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { Menu } from 'lucide-react';
+import { useState } from 'react';
+import { MobileTimerFab } from './components/MobileTimerFab';
+
+// ... (PageWrapper and AnimatedRoutes remain same)
+
 function Layout({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-background text-white overflow-hidden font-sans selection:bg-primary/30">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
       {/* Main Content */}
-      <main className="flex-1 overflow-auto relative">
+      <main className="flex-1 overflow-auto relative w-full">
         {/* Ambient Background Gradient */}
         <div className="absolute top-0 left-0 w-full h-[300px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
-        <div className="p-8 max-w-7xl mx-auto relative z-10">
+        {/* Mobile Header / Menu Button */}
+        <div className="md:hidden p-4 pb-0 flex items-center gap-3 relative z-20">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 bg-slate-800/50 rounded-lg text-white hover:bg-slate-700 transition-colors"
+          >
+            <Menu size={24} />
+          </button>
+          <span className="text-sm font-bold text-slate-300 tracking-widest uppercase">NorthStar</span>
+        </div>
+
+        <div className="p-4 md:p-8 max-w-7xl mx-auto relative z-10">
           {children}
         </div>
+
+        {/* Mobile Timer Floating Button */}
+        <MobileTimerFab />
       </main>
     </div>
   );
