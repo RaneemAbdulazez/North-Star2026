@@ -12,7 +12,7 @@ import Analytics from './pages/Analytics';
 import FocusMode from './pages/FocusMode';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
-import { MobileTimerFab } from './components/MobileTimerFab';
+
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -56,14 +56,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Mobile Timer Floating Button - MOVED TO FocusMode, but keeping here for non-focus pages if needed. 
-          Actually, User wants Focus Page strategy mainly. 
-          But regular dashboard might still need quick access? 
-          User said: "Instead of a floating widget, we want a dedicated Focus Page".
-          However, quick access from dashboard is still nice. 
-          I will keep it for now but maybe conditionally hide if on focus page (which is handled by routing anyway).
-      */}
-      <MobileTimerFab />
+      {/* Mobile Timer Floating Button - Removed in favor of Dedicated Focus Page */}
     </div>
   );
 }
