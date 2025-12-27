@@ -11,15 +11,23 @@ interface TrackerItem {
 
 function App() {
     const [items, setItems] = useState<TrackerItem[]>([]);
-    const [activeItemId, setActiveItemId] = useState<string>('');
-    const [activeItemType, setActiveItemType] = useState<'project' | 'habit' | null>(null);
+
+    // Idle State
+    const [selectedItemId, setSelectedItemId] = useState<string>('');
+    const [taskInput, setTaskInput] = useState('');
+
+    // Active State
     const [isRunning, setIsRunning] = useState(false);
+    const [activeItemId, setActiveItemId] = useState<string>(''); // For context lookup
+    const [activeItemType, setActiveItemType] = useState<'project' | 'habit' | null>(null);
+    const [activeTaskName, setActiveTaskName] = useState('');
     const [startTime, setStartTime] = useState<number | null>(null);
     const [elapsed, setElapsed] = useState(0);
+
     const [totalSpent, setTotalSpent] = useState(0);
     const TOTAL_BUDGET = 240;
 
-    // API URL - Ideally from env or config, hardcoding for stability in extension context
+    // API URL
     const API_URL = 'https://north-star2026.vercel.app/api/sessions/manage';
 
     useEffect(() => {
@@ -49,6 +57,8 @@ function App() {
                     const s = sessionData.session;
                     setIsRunning(true);
                     setStartTime(s.start_time);
+                    setActiveTaskName(s.task_name || "Unknown Task");
+
                     if (s.project_id) {
                         setActiveItemId(s.project_id);
                         setActiveItemType('project');
@@ -69,7 +79,6 @@ function App() {
     useEffect(() => {
         let interval: any;
         if (isRunning && startTime) {
-            // Immediate update
             setElapsed(Math.floor((Date.now() - startTime) / 1000));
             interval = setInterval(() => {
                 setElapsed(Math.floor((Date.now() - startTime) / 1000));
@@ -79,15 +88,17 @@ function App() {
     }, [isRunning, startTime]);
 
     const handleStart = async () => {
-        if (!activeItemId) return;
-        const item = items.find(i => i.id === activeItemId);
+        if (!selectedItemId || !taskInput.trim()) return;
+        const item = items.find(i => i.id === selectedItemId);
         if (!item) return;
 
         const now = Date.now();
         // Optimistic UI update
-        setStartTime(now);
         setIsRunning(true);
+        setStartTime(now);
+        setActiveItemId(item.id);
         setActiveItemType(item.type);
+        setActiveTaskName(taskInput);
 
         try {
             const res = await fetch(API_URL, {
@@ -96,9 +107,9 @@ function App() {
                 body: JSON.stringify({
                     action: 'start',
                     payload: {
-                        itemId: activeItemId,
+                        itemId: item.id,
                         itemType: item.type,
-                        itemName: item.name,
+                        itemName: taskInput, // Use user text as task name
                         startTime: now
                     }
                 })
@@ -134,6 +145,7 @@ function App() {
                 setTotalSpent(prev => prev + (finalElapsed / 3600));
                 setStartTime(null);
                 setElapsed(0);
+                setTaskInput(''); // Clear input after stop
             } else {
                 throw new Error(data.error);
             }
@@ -141,7 +153,6 @@ function App() {
         } catch (e: any) {
             console.error("Failed to stop session:", e);
             alert(`Failed to stop/save session: ${e.message}`);
-            // Force state reset anyway to avoid UI lock
             setIsRunning(false);
         }
     };
@@ -181,19 +192,20 @@ function App() {
                 <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full pointer-events-none transition-opacity duration-1000 ${isRunning ? 'opacity-100' : 'opacity-20'}`} />
 
                 {!isRunning ? (
-                    <div className="w-full z-10 space-y-6">
-                        <div className="text-center">
+                    <div className="w-full z-10 space-y-4">
+                        <div className="text-center mb-2">
                             <h2 className="text-xl font-bold text-white mb-1">Focus Mode</h2>
                             <p className="text-xs text-slate-500">Track a Project or Habit</p>
                         </div>
 
-                        <div className="space-y-2">
+                        {/* Project Selector */}
+                        <div className="space-y-1">
                             <label className="text-[10px] uppercase text-slate-500 font-bold ml-1">Target Activity</label>
                             <div className="relative">
                                 <select
-                                    className="w-full bg-slate-800/50 border border-white/10 rounded-xl p-3 text-sm text-white outline-none focus:border-blue-500 appearance-none"
-                                    value={activeItemId}
-                                    onChange={(e) => setActiveItemId(e.target.value)}
+                                    className="w-full bg-slate-800/50 border border-white/10 rounded-xl p-3 text-sm text-white outline-none focus:border-blue-500 appearance-none transition-all"
+                                    value={selectedItemId}
+                                    onChange={(e) => setSelectedItemId(e.target.value)}
                                 >
                                     <option value="">Select...</option>
                                     <optgroup label="🚀 Projects">
@@ -213,10 +225,22 @@ function App() {
                             </div>
                         </div>
 
+                        {/* Task Input (New) */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] uppercase text-slate-500 font-bold ml-1">Specific Task</label>
+                            <input
+                                type="text"
+                                placeholder="What are you working on?"
+                                className="w-full bg-slate-800/50 border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500 transition-all"
+                                value={taskInput}
+                                onChange={(e) => setTaskInput(e.target.value)}
+                            />
+                        </div>
+
                         <button
                             onClick={handleStart}
-                            disabled={!activeItemId}
-                            className="w-full group bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all"
+                            disabled={!selectedItemId || !taskInput.trim()}
+                            className="w-full mt-4 group bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all active:scale-95"
                         >
                             <Play size={18} fill="currentColor" /> Start Timer
                         </button>
@@ -230,19 +254,22 @@ function App() {
                             <div className="absolute -right-4 top-2 w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
                         </div>
 
-                        <div className="text-center mb-8">
-                            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 uppercase tracking-widest mb-1">
+                        <div className="text-center mb-8 px-4">
+                            {/* Context (Small) */}
+                            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 uppercase tracking-widest mb-2">
                                 {activeItemType === 'habit' ? <BookOpen size={10} /> : <Activity size={10} />}
-                                {activeItemType === 'habit' ? 'Habit' : 'Project'}
+                                {items.find(i => i.id === activeItemId)?.name || 'Unknown Context'}
                             </div>
-                            <h3 className="text-lg font-bold text-blue-200 mt-1">
-                                {items.find(i => i.id === activeItemId)?.name}
+
+                            {/* Task Name (Large) */}
+                            <h3 className="text-lg font-bold text-blue-200 leading-tight">
+                                {activeTaskName}
                             </h3>
                         </div>
 
                         <button
                             onClick={handleStop}
-                            className="group bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold py-3 px-8 rounded-full flex items-center gap-2 transition-all hover:scale-105"
+                            className="group bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 text-red-500 font-bold py-3 px-8 rounded-full flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
                         >
                             <Square size={16} fill="currentColor" /> Stop & Save
                         </button>
@@ -264,7 +291,7 @@ function App() {
             {/* Footer */}
             <div className="p-3 bg-slate-950 flex justify-center border-t border-white/5">
                 <a
-                    href="https://north-star2026-q54mxx1iv-raneemabdulazezs-projects.vercel.app/"
+                    href="https://north-star2026.vercel.app/"
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 text-[10px] text-slate-600 hover:text-blue-400 transition-colors"
