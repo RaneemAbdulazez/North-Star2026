@@ -74,6 +74,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
                 const response = await fetch(API_URL, {
                     method: 'POST',
+                    mode: 'cors', // Explicitly set CORS mode
                     headers: {
                         'Content-Type': 'application/json'
                     },
