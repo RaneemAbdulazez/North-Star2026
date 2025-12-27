@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin SDK for Server-Side Contexts (Vercel Functions, API Routes)
 // This file must NOT be imported in client-side components (React pages).
@@ -34,7 +35,7 @@ const getFirebaseAdmin = () => {
 export const getDb = () => {
     try {
         const app = getFirebaseAdmin();
-        return app.firestore();
+        return getFirestore(app);
     } catch (e) {
         console.error("Failed to initialize DB:", e);
         throw e;

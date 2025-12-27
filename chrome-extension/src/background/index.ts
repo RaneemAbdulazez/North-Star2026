@@ -82,7 +82,20 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                    const errorText = await response.text();
+                    let errorMessage = `Server error: ${response.status}`;
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        if (errorJson.error) {
+                            errorMessage += ` - ${errorJson.error}`;
+                        }
+                        if (errorJson.details) {
+                            errorMessage += ` (${errorJson.details})`;
+                        }
+                    } catch (e) {
+                        errorMessage += ` - ${errorText.substring(0, 50)}`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const data = await response.json();
