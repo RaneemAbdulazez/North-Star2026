@@ -10,12 +10,7 @@ export default function FocusMode() {
     const [elapsed, setElapsed] = useState(0);
     const [stopping, setStopping] = useState(false);
 
-    // Redirect if no session (after initial load)
-    useEffect(() => {
-        if (!loading && !activeSession) {
-            navigate('/');
-        }
-    }, [activeSession, loading, navigate]);
+    // Redirect removed for debugging/UX - Show "Idle" state instead
 
     // Timer Logic
     useEffect(() => {
@@ -40,7 +35,6 @@ export default function FocusMode() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'stop' })
             });
-            // Navigation will happen automatically via useActiveSession -> null -> useEffect redirect
         } catch (error) {
             console.error("Failed to stop session:", error);
             alert("Connection error.");
@@ -55,10 +49,40 @@ export default function FocusMode() {
         return { h, m, s };
     };
 
-    if (loading || !activeSession) {
+    if (loading) {
         return (
             <div className="min-h-screen bg-[#020617] flex items-center justify-center text-blue-500">
-                <div className="animate-pulse">Loading Focus Space...</div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="animate-pulse text-sm tracking-widest uppercase">Syncing Focus Space...</div>
+                </div>
+            </div>
+        );
+    }
+
+    // "No Session" State - visible instead of redirect
+    if (!activeSession) {
+        return (
+            <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center relative overflow-hidden p-6">
+                <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full poiter-events-none" />
+
+                <div className="relative z-10 text-center max-w-md">
+                    <h1 className="text-3xl font-bold mb-4">Ready to Focus?</h1>
+                    <p className="text-slate-400 mb-8">Start a timer from your Dashboard or Extension to enter Focus Mode.</p>
+
+                    <button
+                        onClick={() => navigate('/')}
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-blue-900/20"
+                    >
+                        Go to Dashboard
+                    </button>
+
+                    {/* Debug Info */}
+                    <div className="mt-12 p-4 border border-white/5 rounded-lg bg-slate-900/50 text-[10px] text-slate-500 font-mono text-left">
+                        <div>DEBUG: No Active Session found in Firestore.</div>
+                        <div>Doc ID: null</div>
+                    </div>
+                </div>
             </div>
         );
     }
