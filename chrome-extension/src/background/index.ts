@@ -1,63 +1,64 @@
 // Background Service Worker
 
-const DASHBOARD_URL = "https://north-star2026-nkfadnvaua2hgsbpavwoec.streamlit.app/";
-
-// 1. Auto-Open on Startup
-chrome.runtime.onStartup.addListener(async () => {
-    const tabs = await chrome.tabs.query({ url: DASHBOARD_URL + "/*" });
-    if (tabs.length === 0) {
-        chrome.tabs.create({ url: DASHBOARD_URL, pinned: true });
-    }
-});
-
-// 2. Alarms (Habit Enforcer)
+// 1. Initialization
 chrome.runtime.onInstalled.addListener(() => {
-    // Clear existing
     chrome.alarms.clearAll();
 
-    // Set up Daily 10 AM
-    // Calculate time for next 10 AM
-    const now = new Date();
-    const tenAM = new Date();
-    tenAM.setHours(10, 0, 0, 0);
-    if (now > tenAM) tenAM.setDate(tenAM.getDate() + 1);
-
-    chrome.alarms.create("daily_morning", {
-        when: tenAM.getTime(),
-        periodInMinutes: 1440 // 24 hours
+    // A. 30-Minute Inactivity Nudge
+    chrome.alarms.create("check_inactivity", {
+        periodInMinutes: 30
     });
 
-    // Set up Daily 3 PM
-    const threePM = new Date();
-    threePM.setHours(15, 0, 0, 0);
-    if (now > threePM) threePM.setDate(threePM.getDate() + 1);
+    // B. Daily 9 PM Planning Reminder
+    const now = new Date();
+    const ninePM = new Date();
+    ninePM.setHours(21, 0, 0, 0);
+    if (now > ninePM) ninePM.setDate(ninePM.getDate() + 1);
 
-    chrome.alarms.create("daily_afternoon", {
-        when: threePM.getTime(),
-        periodInMinutes: 1440
+    chrome.alarms.create("daily_planning_9pm", {
+        when: ninePM.getTime(),
+        periodInMinutes: 1440 // 24 hours
     });
 });
 
+// 2. Alarm Handler
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "daily_morning") {
-        chrome.notifications.create({
-            type: "basic",
-            iconUrl: "icons/icon48.png",
-            title: "NorthStar Daily Goal",
-            message: "Have you planned your 20h Deep Work for the week?",
-            priority: 2
+    if (alarm.name === "check_inactivity") {
+        // Check if user is tracking time
+        chrome.storage.local.get(['activeSession'], (result) => {
+            if (!result.activeSession) {
+                // No active session? Send a gentle nudge.
+                // We could also check idle state APIs, but strict "no tracking" 
+                // is a good enough proxy for "distracted" in this strict context.
+                chrome.notifications.create({
+                    type: "basic",
+                    iconUrl: "icons/icon48.png",
+                    title: "Where is your focus?",
+                    message: "Don't let the 240 hours slip away. Start a tracker!",
+                    priority: 1
+                });
+            }
         });
-    } else if (alarm.name === "daily_afternoon") {
+    }
+    else if (alarm.name === "daily_planning_9pm") {
         chrome.notifications.create({
             type: "basic",
             iconUrl: "icons/icon48.png",
-            title: "Afternoon Focus",
-            message: "Don't drift off. One more Deep Work session!",
-            priority: 2
+            title: "NorthStar Planning",
+            message: "Time to set your Daily Path for tomorrow. Stay on track!",
+            priority: 2,
+            buttons: [{ title: "Open Dashboard" }]
         });
     }
 });
 
+// 3. Notification Interactions
 chrome.notifications.onClicked.addListener(() => {
+    const DASHBOARD_URL = "https://north-star2026-nkfadnvaua2hgsbpavwoec.streamlit.app/"; // Or your Next.js URL if deployed
+    chrome.tabs.create({ url: DASHBOARD_URL });
+});
+
+chrome.notifications.onButtonClicked.addListener(() => {
+    const DASHBOARD_URL = "https://north-star2026-nkfadnvaua2hgsbpavwoec.streamlit.app/";
     chrome.tabs.create({ url: DASHBOARD_URL });
 });
