@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Square, ArrowLeft, MoreHorizontal, Play, Briefcase } from 'lucide-react';
 import { useActiveSession } from '../hooks/useActiveSession';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 interface TrackerItem {
