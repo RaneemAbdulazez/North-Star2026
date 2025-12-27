@@ -143,10 +143,10 @@ function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-4 md:p-8 max-w-7xl mx-auto relative z-10">
           {children}
         </div>
-
-        {/* Mobile Timer Floating Button */}
-        <MobileTimerFab />
       </main>
+
+      {/* Mobile Timer Floating Button - Moved outside main to avoid overflow clipping */}
+      <MobileTimerFab />
     </div>
   );
 }

@@ -44,11 +44,19 @@ export function MobileTimerFab() {
         }
     };
 
-    // Debug logging
-    console.log("MobileTimerFab Render:", { activeSession, loading });
+    // DEBUG: Force a mock session if none exists to prove UI visibility
+    // Remove this after verifying UI
+    const debugSession = !activeSession ? {
+        task_name: "DEBUG: No Active Session Found",
+        start_time: Date.now() - 10000
+    } : activeSession;
 
-    if (loading) return null; // Or show loading spinner
-    if (!activeSession) return null;
+    // Use debugSession for rendering
+    const displaySession = activeSession || debugSession;
+
+    if (loading) return null;
+    // Always render for now to debug
+
 
 
     const formatTime = (sec: number) => {
