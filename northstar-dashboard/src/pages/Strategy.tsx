@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 // import { DonutChart } from '../components/DonutChart';
 
 interface Pillar {
@@ -121,7 +121,7 @@ export default function Strategy() {
 
     // --- Sub-Component: Project Mini-Dashboard ---
     const ProjectMiniDashboard = ({ project, onBack }: { project: Project, onBack: () => void }) => {
-        const [logs, setLogs] = useState<Log[]>([]);
+        const [logs, setLogs] = useState<any[]>([]);
         const [loadingLogs, setLoadingLogs] = useState(true);
 
         const spent = projectSpentMap[project.id] || 0;
@@ -130,19 +130,33 @@ export default function Strategy() {
         const progress = Math.min(100, (spent / budget) * 100);
 
         useEffect(() => {
-            const fetchProjectLogs = async () => {
-                const q = query(
-                    collection(db, "work_logs"),
-                    where("project_id", "==", project.id),
-                    orderBy("date", "desc"),
-                    limit(3)
-                );
-                const snap = await getDocs(q);
-                setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() } as Log)));
+            const q = query(
+                collection(db, "work_logs"),
+                where("project_id", "==", project.id),
+                orderBy("date", "desc"),
+                limit(10) // Increased limit to show more context
+            );
+
+            // Real-time listener
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const newLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setLogs(newLogs);
                 setLoadingLogs(false);
-            };
-            fetchProjectLogs();
+            }, (error) => {
+                console.error("Error fetching logs:", error);
+                setLoadingLogs(false);
+            });
+
+            return () => unsubscribe();
         }, [project.id]);
+
+        const formatDate = (dateStr: string) => {
+            try {
+                return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            } catch (e) {
+                return 'Invalid Date';
+            }
+        };
 
         return (
             <div className="flex flex-col h-full">
@@ -196,25 +210,34 @@ export default function Strategy() {
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <Clock size={14} /> Recent Focus Logs
                     </h3>
-                    <div className="space-y-3 overflow-y-auto pr-2">
+                    <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
                         {loadingLogs ? (
-                            <div className="text-slate-500 text-sm animate-pulse">Loading logs...</div>
+                            <div className="flex items-center gap-2 text-slate-500 text-sm p-4">
+                                <span className="animate-spin">⏳</span> Loading history...
+                            </div>
                         ) : logs.length > 0 ? (
                             logs.map(log => (
-                                <div key={log.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5">
+                                <div key={log.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-blue-500/20 transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-slate-800 rounded-lg text-slate-400"><Calendar size={14} /></div>
+                                        <div className="p-2 bg-slate-800 rounded-lg text-slate-400 font-mono text-xs">
+                                            {formatDate(log.date)}
+                                        </div>
                                         <div>
-                                            <div className="text-sm text-white">{log.date}</div>
-                                            {log.description && <div className="text-xs text-slate-500 max-w-[200px] truncate">{log.description}</div>}
+                                            <div className="text-sm text-white font-medium">
+                                                {log.task_name || log.project_name || "Focus Session"}
+                                            </div>
+                                            {log.notes && <div className="text-xs text-slate-500 max-w-[200px] truncate">{log.notes}</div>}
                                         </div>
                                     </div>
-                                    <div className="font-mono text-blue-400 text-sm font-bold">{log.hours}h</div>
+                                    <div className="font-mono text-blue-400 text-sm font-bold flex items-center gap-1">
+                                        {log.hours.toFixed(1)}h
+                                    </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="p-8 text-center border dashed border-white/10 rounded-xl text-slate-500 text-sm">
-                                No time logged yet.
+                            <div className="p-8 text-center border border-dashed border-white/10 rounded-xl">
+                                <p className="text-slate-500 text-sm mb-2">No focus sessions recorded yet.</p>
+                                <p className="text-xs text-slate-600">Start a timer in Focus Mode or with the Extension!</p>
                             </div>
                         )}
                     </div>

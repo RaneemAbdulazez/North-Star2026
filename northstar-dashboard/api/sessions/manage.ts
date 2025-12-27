@@ -95,7 +95,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (data.project_id) {
                 await db.collection('work_logs').add({
                     project_id: data.project_id,
-                    project_name: data.task_name,
+                    project_name: data.task_name, // Keeping for backward compatibility or if project_name meant task description
+                    task_name: data.task_name, // Explicit new field
                     hours: durationHours,
                     date: new Date().toISOString(),
                     created_at: FieldValue.serverTimestamp()
