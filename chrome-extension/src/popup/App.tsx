@@ -19,53 +19,48 @@ function App() {
     const [totalSpent, setTotalSpent] = useState(0);
     const TOTAL_BUDGET = 240;
 
+    // API URL - Ideally from env or config, hardcoding for stability in extension context
+    const API_URL = 'https://north-star2026.vercel.app/api/sessions/manage';
+
     useEffect(() => {
         const init = async () => {
+            // 1. Fetch Items
             try {
-                // 1. Fetch Projects
-                const pSnap = await getDocs(collection(db, "projects"));
-                const pList = pSnap.docs
-                    .map(doc => ({ id: doc.id, name: doc.data().name, type: 'project' as const }))
-                    .filter(p => !p.name.includes("Archive"));
+                const [pSnap, hSnap, lSnap] = await Promise.all([
+                    getDocs(collection(db, "projects")),
+                    getDocs(collection(db, "habits")),
+                    getDocs(collection(db, "work_logs"))
+                ]);
 
-                // 2. Fetch Habits
-                const hSnap = await getDocs(collection(db, "habits"));
-                const hList = hSnap.docs
-                    .map(doc => ({ id: doc.id, name: doc.data().name, type: 'habit' as const }))
-                    .filter(h => h.name); // basic filter
-
+                const pList = pSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, type: 'project' as const })).filter(p => !p.name.includes("Archive"));
+                const hList = hSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, type: 'habit' as const }));
                 setItems([...pList, ...hList]);
 
-                // 3. Calc Total Spent (Budget)
-                // Naive: Just summing work_logs for now + maybe habit logs if desired?
-                // For simplicity, User said "240-hour budget display". 
-                // Let's grab work_logs sum.
-                const lSnap = await getDocs(collection(db, "work_logs"));
+                // Budget Calc
                 const totalHours = lSnap.docs.reduce((acc, doc) => acc + (Number(doc.data().hours) || 0), 0);
-
-                // Add Habit hours to budget? 
-                // User said: "Integrating the total_actual_minutes from habits into the overall 240-hour quarterly budget"
-                // So we should fetch habits and sum their total_actual_minutes too?
-                // Or assuming habits log to "work_logs" too?
-                // The prompt says "Update `habit_logs` (add doc) + increment `total_actual_minutes`".
-                // So we must sum `total_actual_minutes` from ALL habits.
                 const habitTotalMin = hSnap.docs.reduce((acc, doc) => acc + (Number(doc.data().total_actual_minutes) || 0), 0);
-
                 setTotalSpent(totalHours + (habitTotalMin / 60));
+
+                // 2. CHECK ACTIVE SESSION from API
+                const res = await fetch(`${API_URL}?action=get`);
+                const sessionData = await res.json();
+
+                if (sessionData.active && sessionData.session) {
+                    const s = sessionData.session;
+                    setIsRunning(true);
+                    setStartTime(s.start_time);
+                    if (s.project_id) {
+                        setActiveItemId(s.project_id);
+                        setActiveItemType('project');
+                    } else if (s.habit_id) {
+                        setActiveItemId(s.habit_id);
+                        setActiveItemType('habit');
+                    }
+                }
 
             } catch (e) {
                 console.error("Init Error", e);
             }
-
-            // Restore State
-            chrome.storage.local.get(['activeSession'], (res) => {
-                if (res.activeSession) {
-                    setIsRunning(true);
-                    setActiveItemId(res.activeSession.itemId);
-                    setActiveItemType(res.activeSession.itemType || 'project'); // fallback
-                    setStartTime(res.activeSession.startTime);
-                }
-            });
         };
         init();
     }, []);
@@ -74,6 +69,8 @@ function App() {
     useEffect(() => {
         let interval: any;
         if (isRunning && startTime) {
+            // Immediate update
+            setElapsed(Math.floor((Date.now() - startTime) / 1000));
             interval = setInterval(() => {
                 setElapsed(Math.floor((Date.now() - startTime) / 1000));
             }, 1000);
@@ -81,66 +78,67 @@ function App() {
         return () => clearInterval(interval);
     }, [isRunning, startTime]);
 
-    const handleStart = () => {
+    const handleStart = async () => {
         if (!activeItemId) return;
         const item = items.find(i => i.id === activeItemId);
         if (!item) return;
 
         const now = Date.now();
+        // Optimistic UI update
         setStartTime(now);
         setIsRunning(true);
         setActiveItemType(item.type);
 
-        chrome.storage.local.set({
-            activeSession: { itemId: activeItemId, itemType: item.type, startTime: now }
-        });
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'start',
+                    payload: {
+                        itemId: activeItemId,
+                        itemType: item.type,
+                        itemName: item.name,
+                        startTime: now
+                    }
+                })
+            });
+        } catch (e) {
+            console.error("Failed to start session:", e);
+            setIsRunning(false); // revert
+            alert("Connection error. Could not start timer.");
+        }
     };
 
     const handleStop = async () => {
-        if (!activeItemId || !startTime || !activeItemType) return;
+        if (!isRunning) return;
 
+        // Optimistic UI
         setIsRunning(false);
-        const durationHours = elapsed / 3600;
-        const durationMinutes = Math.floor(elapsed / 60);
-        const item = items.find(i => i.id === activeItemId);
+        const finalElapsed = elapsed;
 
-        // Prepare Payload
-        let payload = {};
-        if (activeItemType === 'project') {
-            payload = {
-                type: 'work_log',
-                data: {
-                    project_id: activeItemId,
-                    project_name: item?.name || "Unknown",
-                    hours: durationHours,
-                    focus_score: 3
-                }
-            };
-        } else {
-            payload = {
-                type: 'habit_log',
-                data: {
-                    habit_id: activeItemId,
-                    habit_name: item?.name || "Unknown",
-                    actual_minutes: durationMinutes
-                }
-            };
-        }
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'stop' })
+            });
+            const data = await res.json();
 
-        // Send to Background
-        chrome.runtime.sendMessage({ action: 'log_work', payload }, (response) => {
-            if (response && response.success) {
-                // Cleanup & Feedback
-                chrome.storage.local.remove(['activeSession']);
-                setElapsed(0);
+            if (data.success) {
+                setTotalSpent(prev => prev + (finalElapsed / 3600));
                 setStartTime(null);
-                setTotalSpent(prev => prev + durationHours);
+                setElapsed(0);
             } else {
-                console.error("Log failed:", response?.error);
-                // Show specific error to user for debugging
-                alert(`Failed to save log: ${response?.error || "Unknown error"}`);
+                throw new Error(data.error);
             }
-        });
+
+        } catch (e: any) {
+            console.error("Failed to stop session:", e);
+            alert(`Failed to stop/save session: ${e.message}`);
+            // Force state reset anyway to avoid UI lock
+            setIsRunning(false);
+        }
     };
 
     const formatTime = (seconds: number) => {
