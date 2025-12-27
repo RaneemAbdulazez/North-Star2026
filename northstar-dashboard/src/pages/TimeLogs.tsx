@@ -32,7 +32,7 @@ export default function TimeLogs() {
                         name: data.project_name || 'Unknown Project',
                         date: data.date,
                         duration: `${data.hours}h`,
-                        rawDate: data.date?.seconds || 0,
+                        rawDate: typeof data.date === 'string' ? new Date(data.date).getTime() : (data.date?.seconds || 0),
                         notes: data.notes
                     } as LogItem;
                 });
@@ -49,7 +49,7 @@ export default function TimeLogs() {
                         name: data.habit_name || 'Unknown Habit',
                         date: data.completed_at,
                         duration: `${data.actual_minutes}m`, // Show minutes for habits
-                        rawDate: data.completed_at?.seconds || 0,
+                        rawDate: typeof data.completed_at === 'string' ? new Date(data.completed_at).getTime() : (data.completed_at?.seconds || 0),
                         notes: '-'
                     } as LogItem;
                 });
@@ -67,9 +67,18 @@ export default function TimeLogs() {
         fetchLogs();
     }, []);
 
-    const formatDate = (date: { seconds: number } | Date) => {
+    const formatDate = (date: any) => {
         if (!date) return '-';
-        const d = 'seconds' in date ? new Date(date.seconds * 1000) : date;
+        let d: Date;
+
+        if (typeof date === 'string') {
+            d = new Date(date);
+        } else if ('seconds' in date) {
+            d = new Date(date.seconds * 1000);
+        } else {
+            d = date;
+        }
+
         return d.toLocaleDateString('en-US', {
             month: 'short', day: 'numeric', year: 'numeric'
         });
@@ -144,8 +153,8 @@ export default function TimeLogs() {
                                         </td>
                                         <td className="p-5">
                                             <div className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md w-fit border ${log.type === 'work'
-                                                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                                    : 'bg-green-500/10 text-green-400 border-green-500/20'
+                                                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                : 'bg-green-500/10 text-green-400 border-green-500/20'
                                                 }`}>
                                                 {log.type === 'work' ? <Briefcase size={12} /> : <Zap size={12} />}
                                                 {log.type === 'work' ? 'Project' : 'Habit'}
