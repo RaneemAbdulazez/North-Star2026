@@ -1,64 +1,198 @@
 // Background Service Worker
 
-// 1. Valid URLs
 const DASHBOARD_URL = "https://north-star2026.vercel.app/";
 const DAILY_PLAN_URL = "https://north-star2026.vercel.app/daily-plan";
 const PLANNER_URL = "https://north-star2026.vercel.app/planner";
+const API_BASE = "https://north-star2026.vercel.app/api";
 
-// 2. Setup Alarms Helper
+// 1. Setup Alarms
 const setupAlarms = () => {
     chrome.alarms.clearAll();
 
-    const now = new Date();
+    // A. Idle Nudge (Every 30 mins)
+    // Rule: Notify if NO active session between 9 AM and 9 PM
+    chrome.alarms.create("idle_nudge", { periodInMinutes: 30 });
 
-    // A. Morning Routine (9:00 AM)
+    // B. Break/Focus Check (Every 1 min)
+    // Rule: 
+    // - If Paused > 15m -> Notify "Break Over"
+    // - If Active > 90m -> Notify "Take a Break"
+    chrome.alarms.create("status_check", { periodInMinutes: 1 });
+
+    // C. Daily Planning Alert (9:00 PM)
+    const now = new Date();
+    const next9pm = new Date();
+    next9pm.setHours(21, 0, 0, 0);
+    if (now > next9pm) next9pm.setDate(next9pm.getDate() + 1);
+
+    chrome.alarms.create("planning_alert", {
+        when: next9pm.getTime(),
+        periodInMinutes: 1440 // Daily
+    });
+
+    // D. Morning Rule (9:00 AM)
     const next9am = new Date();
     next9am.setHours(9, 0, 0, 0);
     if (now > next9am) next9am.setDate(next9am.getDate() + 1);
 
     chrome.alarms.create("morning_rule", {
         when: next9am.getTime(),
-        periodInMinutes: 1440 // Daily
-    });
-
-    // B. Evening Prep (9:00 PM)
-    const next9pm = new Date();
-    next9pm.setHours(21, 0, 0, 0);
-    if (now > next9pm) next9pm.setDate(next9pm.getDate() + 1);
-
-    chrome.alarms.create("evening_rule", {
-        when: next9pm.getTime(),
-        periodInMinutes: 1440 // Daily
-    });
-
-    // C. Focus Check (Every 90 minutes)
-    chrome.alarms.create("focus_check", {
-        periodInMinutes: 90
-    });
-
-    // D. Safety Check (Every 15 minutes)
-    chrome.alarms.create("safety_check", {
-        periodInMinutes: 15
+        periodInMinutes: 1440
     });
 };
 
-// 3. Initialization Listeners
-chrome.runtime.onInstalled.addListener(() => {
-    setupAlarms();
-});
+chrome.runtime.onInstalled.addListener(setupAlarms);
+chrome.runtime.onStartup.addListener(setupAlarms);
 
-chrome.runtime.onStartup.addListener(() => {
-    setupAlarms();
-    // Persist the Auto-Open Dashboard feature
-    chrome.tabs.create({ url: DASHBOARD_URL });
-});
+// 2. Alarm Handler
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    const now = new Date();
+    const hour = now.getHours();
 
-// 4. Alarm Handler
-chrome.alarms.onAlarm.addListener((alarm) => {
-    // A. Morning Rule
-    if (alarm.name === "morning_rule") {
-        chrome.tabs.create({ url: DAILY_PLAN_URL });
-        chrome.notifications.create({
+    // --- A. IDLE NUDGE (30m) ---
+    if (alarm.name === "idle_nudge") {
+        if (hour >= 9 && hour < 21) { // 9 AM - 9 PM
+            // Check if session is active
+            try {
+                const res = await fetch(`${API_BASE}/sessions/manage?action=get`);
+                const data = await res.json();
+
+                // Fetch daily stats for the nudge
+                const dailyRes = await fetch(`${API_BASE}/time-logs/daily-stats`);
+                const dailyData = await dailyRes.json();
+                const totalHours = dailyData.total_hours || 0;
+                const dailyTarget = dailyData.daily_target || 6;
+                const hoursLeft = Math.max(0, dailyTarget - totalHours).toFixed(1);
+
+                if (!data.active) {
+                    chrome.notifications.create("notification_idle", {
+                        type: "basic",
+                        iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                        title: "Where is your focus? 🎯",
+                        message: `You've done ${totalHours.toFixed(1)}/${dailyTarget} hours today. ${hoursLeft} hours left to stay on track for Q1!`,
+                        priority: 2,
+                        buttons: [{ title: "Start Session" }]
+                    });
+                } else {
+                    // Clear idle notification if it exists
+                    chrome.notifications.clear("notification_idle");
+                }
+            } catch (e) {
+                console.error("Idle Check failed", e);
+            }
+        }
+    }
+
+    // --- B. STATUS CHECK (1m) ---
+    // Handles 90m Focus Reminder & 15m Break Reminder & Safety Stop
+    else if (alarm.name === "status_check") {
+        try {
+            const res = await fetch(`${API_BASE}/sessions/manage?action=get`);
+            const data = await res.json();
+
+            if (data.active && data.session) {
+                // Clear Idle Notification immediately if active
+                chrome.notifications.clear("notification_idle");
+
+                const s = data.session;
+                const nowMs = Date.now();
+
+                // 1. SAFETY STOP (4 Hours)
+                // (Moved logic inside here to sync with API data)
+                const start = new Date(s.start_time).getTime();
+                const totalElapsedHours = (nowMs - start) / 1000 / 3600;
+
+                if (totalElapsedHours >= 4) {
+                    // Auto-stop logic (call API)
+                    const payload = {
+                        project_id: s.project_id || s.habit_id,
+                        project_name: s.project_name || s.task_name || "Unknown",
+                        hours: totalElapsedHours,
+                        task_name: (s.task_name || "Auto-stopped") + " (Auto-stopped)",
+                        date: new Date().toISOString(),
+                        source: 'safety_check'
+                    };
+                    await fetch(`${API_BASE}/time-logs/create`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'work_log', data: payload })
+                    });
+
+                    // Stop session
+                    await fetch(`${API_BASE}/sessions/manage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'stop' }) // Ensure API handles this
+                    });
+
+                    chrome.notifications.create("notification_safety", {
+                        type: "basic",
+                        iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                        title: "Session Auto-Stopped 🛑",
+                        message: "Your session exceeded 4 hours and has been saved automatically.",
+                        priority: 2
+                    });
+                    return; // Exit
+                }
+
+                // 2. BREAK CHECK (Paused > 15m)
+                if (s.status === 'paused' && s.last_pause_time) {
+                    const breakStart = s.last_pause_time;
+                    const breakMin = (nowMs - breakStart) / 1000 / 60;
+
+                    if (breakMin >= 15 && breakMin < 16) { // Notify roughly once
+                        chrome.notifications.create("notification_break", {
+                            type: "basic",
+                            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                            title: "Break Time Over? ⏳",
+                            message: "You've been on break for over 15 minutes. Ready to resume focus?",
+                            priority: 2,
+                            buttons: [{ title: "Resume" }]
+                        });
+                    }
+                }
+
+                // 3. FOCUS REMINDER (Active > 90m)
+                // We need Net Duration (excluding breaks)
+                // Helper: Sum current breaks
+                const totalBreaks = (s.breaks || []).reduce((acc: number, b: any) => acc + (b.duration || 0), 0);
+                const netDurationMs = (nowMs - start) / 1000 - totalBreaks;
+                const netMinutes = netDurationMs / 60;
+
+                // Check 90m threshold
+                // We use a simplified check: between 90 and 91 mins. 
+                // Since this runs every minute, it should catch it.
+                if (s.status === 'active' && netMinutes >= 90 && netMinutes < 91) {
+                    chrome.notifications.create("notification_focus", {
+                        type: "basic",
+                        iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                        title: "90 Minutes of Focus! 🧠",
+                        message: "Time for a short break to recharge your brain. ☕",
+                        priority: 2,
+                        buttons: [{ title: "Take a Break" }]
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Status check failed", e);
+        }
+    }
+
+    // --- C. PLANNING ALERT (9 PM) ---
+    else if (alarm.name === "planning_alert") {
+        chrome.notifications.create("notification_plan", {
+            type: "basic",
+            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+            title: "Plan for Tomorrow 📝",
+            message: "Don't forget to plan your tasks for tomorrow! A clear plan is half the battle.",
+            priority: 2,
+            buttons: [{ title: "Plan Now" }]
+        });
+    }
+
+    // --- D. MORNING RULE ---
+    else if (alarm.name === "morning_rule") {
+        chrome.notifications.create("notification_morning", {
             type: "basic",
             iconUrl: chrome.runtime.getURL("icons/icon48.png"),
             title: "Good Morning! ☀️",
@@ -67,161 +201,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             buttons: [{ title: "View Plan" }]
         });
     }
-    // B. Evening Rule
-    else if (alarm.name === "evening_rule") {
-        chrome.tabs.create({ url: PLANNER_URL });
-        chrome.notifications.create({
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-            title: "Evening Review 🌙",
-            message: "Time to prep for tomorrow. Plan your goals now to stay ahead!",
-            priority: 2,
-            buttons: [{ title: "Plan Tomorrow" }]
-        });
-    }
-    // C. Focus Check (90-min Rule)
-    else if (alarm.name === "focus_check") {
-        chrome.storage.local.get(['activeSession'], (result) => {
-            // Only notify if NO active session
-            if (!result.activeSession) {
-                chrome.notifications.create({
-                    type: "basic",
-                    iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-                    title: "Where is your focus? 🎯",
-                    message: "You haven't started a focus session yet. Shall we work on your 240-hour goal?",
-                    priority: 2
-                });
-            }
-        });
-    }
-    // D. Safety Check (Every 15 min)
-    else if (alarm.name === "safety_check") {
-        chrome.storage.local.get(['activeSession', 'startTime'], (result) => {
-            if (result.activeSession && result.startTime) {
-                const now = Date.now();
-                const start = new Date(result.startTime).getTime();
-                const diffMs = now - start;
-                const diffHours = diffMs / (1000 * 60 * 60);
-
-                if (diffHours >= 4) {
-                    // Auto-stop session
-                    const payload = {
-                        project_id: result.activeSession.pillarId, // Assuming structure, verify this!
-                        project_name: result.activeSession.label || result.activeSession.pillarId,
-                        hours: diffHours,
-                        task_name: result.activeSession.taskName + " (Auto-stopped)",
-                        date: new Date().toISOString(),
-                        source: 'safety_check_auto_stop'
-                    };
-
-                    // Call API to save (using same logic as log_work)
-                    const API_URL = "https://north-star2026.vercel.app/api/time-logs/create";
-                    fetch(API_URL, {
-                        method: 'POST',
-                        mode: 'cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: 'work_log', data: payload })
-                    }).then(() => {
-                        // Clear session
-                        chrome.storage.local.remove(['activeSession', 'startTime', 'isRunning']);
-                        chrome.action.setBadgeText({ text: '' });
-
-                        // Notify User
-                        chrome.notifications.create({
-                            type: "basic",
-                            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-                            title: "Session Auto-Stopped 🛑",
-                            message: "Your session exceeded 4 hours and has been saved automatically.",
-                            priority: 2
-                        });
-                    }).catch(err => console.error("Auto-stop save failed", err));
-                }
-            }
-        });
-    }
 });
 
-// 5. Notification Interactions
+// 3. Notification Interactions
 chrome.notifications.onClicked.addListener(() => {
     chrome.tabs.create({ url: DASHBOARD_URL });
 });
 
-chrome.notifications.onButtonClicked.addListener((notificationId, _buttonIndex) => {
-    // Simple logic: any button click opens relevant page. 
-    // We could differentiate by ID if needed, but they all generally point to the app.
-    if (notificationId.includes("morning")) {
-        chrome.tabs.create({ url: DAILY_PLAN_URL });
-    } else if (notificationId.includes("evening")) {
+chrome.notifications.onButtonClicked.addListener((id, _btnIdx) => {
+    if (id === "notification_plan") {
         chrome.tabs.create({ url: PLANNER_URL });
+    } else if (id === "notification_morning") {
+        chrome.tabs.create({ url: DAILY_PLAN_URL });
     } else {
         chrome.tabs.create({ url: DASHBOARD_URL });
     }
-});
-
-// 4. Async Message Listener (Fix for "A listener indicated an asynchronous response...")
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-    // 1. Return true immediately to keep the channel open
-    // 2. Handle logic asynchronously
-    (async () => {
-        try {
-            if (request.action === 'log_work') {
-                const API_URL = "https://north-star2026.vercel.app/api/time-logs/create";
-
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'cors', // Explicitly set CORS mode
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(request.payload)
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    let errorMessage = `Server error: ${response.status}`;
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        if (errorJson.error) {
-                            errorMessage += ` - ${errorJson.error}`;
-                        }
-                        if (errorJson.details) {
-                            errorMessage += ` (${errorJson.details})`;
-                        }
-                    } catch (e) {
-                        errorMessage += ` - ${errorText.substring(0, 50)}`;
-                    }
-                    throw new Error(errorMessage);
-                }
-
-                const data = await response.json();
-                sendResponse({ success: true, data });
-
-            } else if (request.action === 'test_notification') {
-                console.log("Received test_notification request");
-
-                chrome.notifications.create({
-                    type: "basic",
-                    iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-                    title: "Test Notification",
-                    message: "This is how your NorthStar reminders will look!",
-                    priority: 2
-                }, (notificationId) => {
-                    if (chrome.runtime.lastError) {
-                        console.error("Notification received error:", chrome.runtime.lastError);
-                    } else {
-                        console.log("Notification created ID:", notificationId);
-                    }
-                });
-
-                sendResponse({ success: true });
-            } else {
-                sendResponse({ status: 'ignored' });
-            }
-        } catch (error: any) {
-            console.error("Background Async Error:", error);
-            sendResponse({ success: false, error: error.message });
-        }
-    })();
-
-    return true; // CRITICAL: Indicates we will respond asynchronously
 });

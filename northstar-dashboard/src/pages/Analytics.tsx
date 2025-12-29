@@ -51,7 +51,7 @@ export default function Analytics() {
         english: 0
     });
 
-    const QUARTER_BUDGET = 240;
+    const QUARTER_BUDGET = 425;
     // const DAYS_IN_QUARTER = 90;
     // const daysPassed = Math.max(1, Math.floor((new Date().getTime() - new Date("2026-01-01").getTime()) / (1000 * 3600 * 24)));
 
