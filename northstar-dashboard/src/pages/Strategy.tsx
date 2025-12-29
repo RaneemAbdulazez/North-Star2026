@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, CheckCircle2, AlertCircle, Trash2, Pencil } from 'lucide-react';
+import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, CheckCircle2, AlertCircle, Trash2, Pencil, Coffee } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { ManualEntryModal } from '../components/ManualEntryModal';
 import { EditLogModal } from '../components/EditLogModal';
@@ -284,7 +284,15 @@ export default function Strategy() {
                                             <div className="text-sm text-white font-medium">
                                                 {log.task_name || log.project_name || "Focus Session"}
                                             </div>
-                                            {log.notes && <div className="text-xs text-slate-500 max-w-[200px] truncate">{log.notes}</div>}
+                                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                {log.notes && <span className="max-w-[150px] truncate">{log.notes}</span>}
+                                                {(log.total_break_seconds || 0) > 0 && (
+                                                    <span className="flex items-center gap-1 text-amber-500/80 bg-amber-500/10 px-1.5 py-0.5 rounded ml-2">
+                                                        <Coffee size={10} />
+                                                        {Math.round(log.total_break_seconds / 60)}m break
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Square, ArrowLeft, MoreHorizontal, Play, Briefcase } from 'lucide-react';
+import { Square, ArrowLeft, MoreHorizontal, Play, Briefcase, Pause, PlayCircle } from 'lucide-react';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -55,26 +55,45 @@ export default function FocusMode() {
     }, []);
 
     // 2. Timer Logic
+    // 2. Timer Logic
     useEffect(() => {
         if (!activeSession) {
             setElapsed(0);
             return;
         }
 
-        const now = Date.now();
-        const start = activeSession.start_time;
-        setElapsed(Math.max(0, Math.floor((now - start) / 1000)));
+        const calculateElapsed = () => {
+            const now = Date.now();
+            const start = activeSession.start_time;
+            const breaks = activeSession.breaks || [];
+            const totalBreakTime = breaks.reduce((acc, b) => acc + (b.duration || 0), 0);
 
-        const interval = setInterval(() => {
-            const current = Date.now();
-            setElapsed(Math.max(0, Math.floor((current - start) / 1000)));
-        }, 1000);
+            if (activeSession.status === 'paused' && activeSession.last_pause_time) {
+                // If paused, elapsed is fixed at the moment of pause minus previous breaks
+                // But wait, the breaks array usually stores COMPLETED breaks.
+                // The current pause is NOT in the breaks array yet.
+                // So elapsed = (last_pause - start) - total_past_breaks
+                const rawElapsed = Math.floor((activeSession.last_pause_time - start) / 1000);
+                setElapsed(Math.max(0, rawElapsed - totalBreakTime));
+            } else {
+                // Active
+                const rawElapsed = Math.floor((now - start) / 1000);
+                setElapsed(Math.max(0, rawElapsed - totalBreakTime));
+            }
+        };
 
-        return () => clearInterval(interval);
+        calculateElapsed();
+
+        // Only tick if active
+        if (activeSession.status === 'active') {
+            const interval = setInterval(calculateElapsed, 1000);
+            return () => clearInterval(interval);
+        }
     }, [activeSession]);
 
     // 3. Handlers
     const handleStart = async () => {
+        // ... (existing start code)
         if (!selectedId || !taskName.trim() || starting) return;
         setStarting(true);
 
@@ -97,7 +116,6 @@ export default function FocusMode() {
             });
 
             if (!res.ok) throw new Error("Failed to start");
-            // Success: activeSession hook will pick it up and trigger UI switch
         } catch (error) {
             console.error(error);
             alert("Failed to start session");
@@ -113,16 +131,43 @@ export default function FocusMode() {
             await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'stop' })
+                body: JSON.stringify({ action: 'stop' }) // API now handles calculating net duration
             });
         } catch (error) {
             console.error("Failed to stop session:", error);
             alert("Connection error.");
         } finally {
             setStopping(false);
-            setStarting(false); // Reset start loading state if needed
+            setStarting(false);
         }
     };
+
+    const handlePause = async () => {
+        try {
+            await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'pause' })
+            });
+            // Ideally optimistically update local state or re-fetch
+            // For now, reliance on useActiveSession listener might lag slightly but is safer
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleResume = async () => {
+        try {
+            await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resume' })
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
 
     const formatTime = (sec: number) => {
         const h = Math.floor(sec / 3600);
@@ -132,11 +177,13 @@ export default function FocusMode() {
     };
 
     const time = formatTime(elapsed);
+    const isPaused = activeSession?.status === 'paused';
 
     // -------------------------------------------------------------------------
     // RENDER
     // -------------------------------------------------------------------------
 
+    // ... (Loading state same as before) ...
     if (sessionLoading || loadingItems) {
         return (
             <div className="min-h-screen bg-[#020617] flex items-center justify-center text-blue-500">
@@ -152,7 +199,7 @@ export default function FocusMode() {
         <div className="min-h-screen bg-[#020617] text-white flex flex-col relative overflow-hidden transition-colors duration-1000">
             {/* Ambient Background */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className={`absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-blue-600/20 blur-[120px] rounded-full transition-all duration-1000 ${activeSession ? 'animate-pulse-slow' : 'opacity-50'}`} />
+                <div className={`absolute top-[-10%] left-[20%] w-[500px] h-[500px] bg-blue-600/20 blur-[120px] rounded-full transition-all duration-1000 ${activeSession && !isPaused ? 'animate-pulse-slow' : 'opacity-30'}`} />
                 <div className="absolute bottom-[-10%] right-[20%] w-[400px] h-[400px] bg-indigo-600/10 blur-[100px] rounded-full" />
             </div>
 
@@ -165,11 +212,14 @@ export default function FocusMode() {
                     <ArrowLeft size={24} />
                 </button>
                 <div className="flex items-center gap-2">
-                    {activeSession && (
+                    {activeSession && !isPaused && (
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
+                    )}
+                    {isPaused && (
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                     )}
                     <span className="text-xs font-bold tracking-widest text-blue-500 uppercase">Focus Mode</span>
                 </div>
@@ -259,9 +309,9 @@ export default function FocusMode() {
                             className="flex flex-col items-center w-full"
                         >
                             <div className="mb-12 text-center w-full">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium mb-6">
-                                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                                    Focusing
+                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium mb-6 ${isPaused ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-blue-500/10 border-blue-500/20 text-blue-300'}`}>
+                                    <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-400' : 'bg-blue-400 animate-pulse'}`} />
+                                    {isPaused ? 'Paused' : 'Focusing'}
                                 </div>
 
                                 <h1 className="text-3xl md:text-5xl font-bold text-white mb-2 leading-tight break-words">
@@ -277,9 +327,9 @@ export default function FocusMode() {
 
                             {/* Timer Display */}
                             <div className="mb-20 relative">
-                                <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full" />
+                                <div className={`absolute inset-0 blur-3xl rounded-full transition-all duration-500 ${isPaused ? 'bg-amber-500/5' : 'bg-blue-500/10'}`} />
 
-                                <div className="flex items-baseline gap-2 font-mono font-bold text-8xl md:text-9xl text-white drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] tabular-nums">
+                                <div className={`flex items-baseline gap-2 font-mono font-bold text-8xl md:text-9xl drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] tabular-nums transition-colors duration-500 ${isPaused ? 'text-amber-100' : 'text-white'}`}>
                                     {time.h > 0 && (
                                         <>
                                             <span>{time.h}</span>
@@ -287,31 +337,61 @@ export default function FocusMode() {
                                         </>
                                     )}
                                     <span>{time.m.toString().padStart(2, '0')}</span>
-                                    <span className="text-4xl text-slate-600 animate-pulse">:</span>
+                                    <span className={`text-4xl text-slate-600 ${!isPaused && 'animate-pulse'}`}>:</span>
                                     <span>{time.s.toString().padStart(2, '0')}</span>
                                 </div>
-                                <div className="text-center text-slate-500 text-xs mt-4 font-bold tracking-[0.2em]">ELAPSED TIME</div>
+                                <div className="text-center text-slate-500 text-xs mt-4 font-bold tracking-[0.2em]">{isPaused ? 'SESSION PAUSED' : 'ELAPSED TIME'}</div>
                             </div>
 
                             {/* Controls */}
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={handleStop}
-                                disabled={stopping}
-                                className="group relative flex items-center justify-center w-24 h-24 rounded-full bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/30 hover:border-red-500 transition-all duration-300"
-                            >
-                                {stopping ? (
-                                    <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                    <Square size={32} className="text-red-500 group-hover:scale-110 transition-transform" fill="currentColor" />
-                                )}
-                            </motion.button>
-                            <div className="mt-4 text-xs font-bold text-red-500/50 uppercase tracking-widest">Stop Session</div>
+                            <div className="flex items-center gap-6">
+                                {/* PAUSE / RESUME BUTTON */}
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={isPaused ? handleResume : handlePause}
+                                    className={`group relative flex items-center justify-center w-20 h-20 rounded-full border-2 transition-all duration-300 ${isPaused ? 'bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500' : 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500'}`}
+                                >
+                                    {isPaused ? (
+                                        <PlayCircle size={32} className="text-blue-500 ml-1" fill="currentColor" />
+                                    ) : (
+                                        <Pause size={32} className="text-amber-500" fill="currentColor" />
+                                    )}
+                                </motion.button>
+
+                                {/* STOP BUTTON */}
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={handleStop}
+                                    disabled={stopping}
+                                    className="group relative flex items-center justify-center w-24 h-24 rounded-full bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/30 hover:border-red-500 transition-all duration-300"
+                                >
+                                    {stopping ? (
+                                        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        <Square size={32} className="text-red-500 group-hover:scale-110 transition-transform" fill="currentColor" />
+                                    )}
+                                </motion.button>
+                            </div>
+
+
                         </motion.div>
                     )}
                 </AnimatePresence>
             </div>
+
+            {/* Pause Overlay (Optional visual flair) */}
+            <AnimatePresence>
+                {isPaused && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 pointer-events-none z-0 bg-black/40 backdrop-blur-[2px]"
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }

@@ -1,0 +1,103 @@
+{
+  "hash": "b6cf2ce0",
+  "configHash": "f4666bac",
+  "lockfileHash": "15cc94fe",
+  "browserHash": "9c99eeae",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "ea928db3",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "9ef7e054",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "85a9d39b",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "0801f293",
+      "needsInterop": false
+    },
+    "framer-motion": {
+      "src": "../../node_modules/framer-motion/dist/es/index.mjs",
+      "file": "framer-motion.js",
+      "fileHash": "8a30a80d",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "8bec3693",
+      "needsInterop": false
+    },
+    "clsx": {
+      "src": "../../node_modules/clsx/dist/clsx.mjs",
+      "file": "clsx.js",
+      "fileHash": "29bb0d3d",
+      "needsInterop": false
+    },
+    "tailwind-merge": {
+      "src": "../../node_modules/tailwind-merge/dist/bundle-mjs.mjs",
+      "file": "tailwind-merge.js",
+      "fileHash": "752d41db",
+      "needsInterop": false
+    },
+    "firebase/firestore": {
+      "src": "../../node_modules/firebase/firestore/dist/esm/index.esm.js",
+      "file": "firebase_firestore.js",
+      "fileHash": "29fc511c",
+      "needsInterop": false
+    },
+    "canvas-confetti": {
+      "src": "../../node_modules/canvas-confetti/dist/confetti.module.mjs",
+      "file": "canvas-confetti.js",
+      "fileHash": "83215d7f",
+      "needsInterop": false
+    },
+    "recharts": {
+      "src": "../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "6f92bc97",
+      "needsInterop": false
+    },
+    "firebase/app": {
+      "src": "../../node_modules/firebase/app/dist/esm/index.esm.js",
+      "file": "firebase_app.js",
+      "fileHash": "2c31617d",
+      "needsInterop": false
+    },
+    "@google/generative-ai": {
+      "src": "../../node_modules/@google/generative-ai/dist/index.mjs",
+      "file": "@google_generative-ai.js",
+      "fileHash": "fbf3e48c",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-WSY7FJM5": {
+      "file": "chunk-WSY7FJM5.js"
+    },
+    "chunk-UHINIFCJ": {
+      "file": "chunk-UHINIFCJ.js"
+    },
+    "chunk-W4EHDCLL": {
+      "file": "chunk-W4EHDCLL.js"
+    },
+    "chunk-KDVGFZWC": {
+      "file": "chunk-KDVGFZWC.js"
+    },
+    "chunk-EWTE5DHJ": {
+      "file": "chunk-EWTE5DHJ.js"
+    }
+  }
+}

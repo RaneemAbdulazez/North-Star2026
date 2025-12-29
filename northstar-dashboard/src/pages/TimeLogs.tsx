@@ -1,5 +1,6 @@
+
 import { motion } from 'framer-motion';
-import { History, Calendar, Clock, Search, Zap, Briefcase, Trash2, Pencil } from 'lucide-react';
+import { Trash2, Calendar, Clock, Coffee, Pencil, History, Search, Zap, Briefcase } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
@@ -26,6 +27,7 @@ interface LogItem {
     duration: string;
     rawDate: number; // for sorting
     notes?: string;
+    total_break_seconds?: number;
 }
 
 export default function TimeLogs() {
@@ -51,7 +53,8 @@ export default function TimeLogs() {
                         date: data.date,
                         duration: `${data.hours}h`,
                         rawDate: typeof data.date === 'string' ? new Date(data.date).getTime() : (data.date?.seconds || 0),
-                        notes: data.notes
+                        notes: data.notes,
+                        total_break_seconds: data.total_break_seconds || 0
                     } as LogItem;
                 });
 
@@ -67,7 +70,8 @@ export default function TimeLogs() {
                         date: data.completed_at,
                         duration: `${data.actual_minutes}m`, // Show minutes for habits
                         rawDate: typeof data.completed_at === 'string' ? new Date(data.completed_at).getTime() : (data.completed_at?.seconds || 0),
-                        notes: '-'
+                        notes: '-',
+                        total_break_seconds: data.total_break_seconds || 0
                     } as LogItem;
                 });
 
@@ -211,10 +215,18 @@ export default function TimeLogs() {
                                                 {formatDate(log.date)}
                                             </div>
                                         </td>
-                                        <td className="p-5">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] ${log.type === 'work' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                                                <span className="font-medium text-white text-sm">{log.name}</span>
+                                        <td className="p-4 text-white">
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] ${log.type === 'work' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                                                    <span className="font-medium text-white text-sm">{log.name}</span>
+                                                </div>
+                                                {(log.total_break_seconds || 0) > 0 && (
+                                                    <div className="flex items-center gap-1 text-xs text-amber-500/80 bg-amber-500/10 px-1.5 py-0.5 rounded w-fit ml-4">
+                                                        <Coffee size={10} />
+                                                        {Math.round((log.total_break_seconds || 0) / 60)}m break
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="p-5">

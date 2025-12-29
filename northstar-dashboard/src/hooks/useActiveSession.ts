@@ -8,6 +8,9 @@ export interface ActiveSession {
     start_time: number;
     project_id?: string;
     habit_id?: string;
+    status: 'active' | 'paused';
+    last_pause_time?: number;
+    breaks?: { start: number; end: number; duration: number }[];
 }
 
 export function useActiveSession() {
@@ -15,10 +18,10 @@ export function useActiveSession() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Query for active sessions
+        // Query for active OR paused sessions
         const q = query(
             collection(db, "work_sessions"),
-            where("status", "==", "active")
+            where("status", "in", ["active", "paused"])
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {

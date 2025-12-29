@@ -66,46 +66,125 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ success: true, sessionId: ref.id });
         }
 
-        // 3. STOP Session
-        if (req.method === 'POST' && action === 'stop') {
+        // 3. PAUSE Session
+        if (req.method === 'POST' && action === 'pause') {
             const snapshot = await db.collection('work_sessions')
                 .where('status', '==', 'active')
                 .limit(1)
                 .get();
 
-            if (snapshot.empty) {
-                return res.status(404).json({ error: "No active session found" });
-            }
+            if (snapshot.empty) return res.status(404).json({ error: "No active session" });
+            const doc = snapshot.docs[0];
 
+            await doc.ref.update({
+                status: 'paused',
+                last_pause_time: Date.now()
+            });
+
+            return res.status(200).json({ success: true, status: 'paused' });
+        }
+
+        // 4. RESUME Session
+        if (req.method === 'POST' && action === 'resume') {
+            const snapshot = await db.collection('work_sessions')
+                .where('status', '==', 'paused')
+                .limit(1)
+                .get();
+
+            if (snapshot.empty) return res.status(404).json({ error: "No paused session" });
             const doc = snapshot.docs[0];
             const data = doc.data();
-            const endTime = Date.now();
-            const durationSec = Math.floor((endTime - data.start_time) / 1000);
-            const durationMin = Math.floor(durationSec / 60);
-            const durationHours = durationSec / 3600;
 
-            // Update Session Doc
+            const now = Date.now();
+            const pauseStart = data.last_pause_time || now;
+            const breakDuration = Math.floor((now - pauseStart) / 1000);
+
+            const breakEntry = {
+                start: pauseStart,
+                end: now,
+                duration: breakDuration
+            };
+
+            await doc.ref.update({
+                status: 'active',
+                last_pause_time: FieldValue.delete(),
+                breaks: FieldValue.arrayUnion(breakEntry)
+            });
+
+            return res.status(200).json({ success: true, status: 'active', breakAdded: breakEntry });
+        }
+
+        // 5. STOP Session
+        if (req.method === 'POST' && action === 'stop') {
+            // Find Active OR Paused session
+            const activeSnapshot = await db.collection('work_sessions').where('status', '==', 'active').limit(1).get();
+            const pausedSnapshot = await db.collection('work_sessions').where('status', '==', 'paused').limit(1).get();
+
+            let doc;
+            if (!activeSnapshot.empty) doc = activeSnapshot.docs[0];
+            else if (!pausedSnapshot.empty) doc = pausedSnapshot.docs[0];
+            else return res.status(404).json({ error: "No session found to stop" });
+
+            const data = doc.data();
+            const endTime = Date.now();
+
+            // Calculate Wall Clock Duration
+            const wallDurationSec = Math.floor((endTime - data.start_time) / 1000);
+
+            // Calculate Breaks
+            let breaks = data.breaks || [];
+
+            // If stopped while paused, finalize the pending break
+            if (data.status === 'paused' && data.last_pause_time) {
+                const finalBreakDuration = Math.floor((endTime - data.last_pause_time) / 1000);
+                breaks.push({
+                    start: data.last_pause_time,
+                    end: endTime,
+                    duration: finalBreakDuration
+                });
+            }
+
+            const totalBreakTimeSec = breaks.reduce((acc: number, b: any) => acc + (b.duration || 0), 0);
+            const netDurationSec = Math.max(0, wallDurationSec - totalBreakTimeSec);
+            const netDurationHours = netDurationSec / 3600;
+            const netDurationMin = Math.floor(netDurationSec / 60);
+
+            // Update Session Doc (Completed)
             await doc.ref.update({
                 status: 'completed',
                 end_time: endTime,
-                duration_seconds: durationSec
+                duration_seconds: netDurationSec,
+                total_break_seconds: totalBreakTimeSec,
+                breaks: breaks
             });
 
             // Create Log (Work Log or Habit Log)
             if (data.project_id) {
                 await db.collection('work_logs').add({
                     project_id: data.project_id,
-                    project_name: data.task_name, // Keeping for backward compatibility or if project_name meant task description
-                    task_name: data.task_name, // Explicit new field
-                    hours: durationHours,
+                    project_name: data.task_name,
+                    task_name: data.task_name,
+                    hours: netDurationHours, // NET HOURS
+                    breaks: breaks,
+                    total_break_seconds: totalBreakTimeSec,
                     date: new Date().toISOString(),
                     created_at: FieldValue.serverTimestamp()
                 });
+
+                // Update Project Spent Hours (Refund/Charge based on net)
+                if (netDurationHours > 0) {
+                    const projectRef = db.collection('projects').doc(data.project_id);
+                    await projectRef.update({
+                        spent_hours: FieldValue.increment(netDurationHours)
+                    });
+                }
+
             } else if (data.habit_id) {
                 await db.collection('habit_logs').add({
                     habit_id: data.habit_id,
                     habit_name: data.task_name,
-                    actual_minutes: durationMin,
+                    actual_minutes: netDurationMin, // NET MINS
+                    breaks: breaks,
                     date: new Date().toISOString(),
                     created_at: FieldValue.serverTimestamp()
                 });
@@ -113,11 +192,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Update Habit Totals
                 const habitRef = db.collection('habits').doc(data.habit_id);
                 await habitRef.update({
-                    total_actual_minutes: FieldValue.increment(durationMin)
+                    total_actual_minutes: FieldValue.increment(netDurationMin)
                 });
             }
 
-            return res.status(200).json({ success: true, duration: durationSec });
+            return res.status(200).json({ success: true, duration: netDurationSec, breaks: totalBreakTimeSec });
         }
 
         return res.status(400).json({ error: "Invalid action" });
