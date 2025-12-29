@@ -118,14 +118,15 @@ export default function FocusMode() {
                 // Get Token (Ensure fresh auth state)
                 const token = await auth.currentUser?.getIdToken();
 
-                // Prepare Payload with UTC ISO String
+                // Prepare Payload with UTC Timestamp (Number)
+                // Date.now() is always UTC (Epoch ms), safely avoiding timezone issues.
                 const payload = {
                     action: 'start',
                     payload: {
                         itemId: item?.id,
                         itemType: item?.type,
                         itemName: taskName,
-                        startTime: new Date().toISOString() // ISO String as requested
+                        startTime: Date.now()
                     }
                 };
 
@@ -150,7 +151,7 @@ export default function FocusMode() {
                         if (errorJson.error) errorMessage = errorJson.error;
                     } catch (e) { /* ignore */ }
 
-                    throw new Error(`Server Error: ${res.status} - ${errorMessage}`);
+                    throw new Error(`${res.status}: ${errorMessage}`);
                 }
 
                 // Success
