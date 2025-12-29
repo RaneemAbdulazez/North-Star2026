@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { History, Calendar, Clock, Search, Zap, Briefcase, Trash2 } from 'lucide-react';
+import { History, Calendar, Clock, Search, Zap, Briefcase, Trash2, Pencil } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { EditLogModal } from '../components/EditLogModal';
 
 // API Helpers
 const API_BASE = "https://north-star2026.vercel.app/api/time-logs";
@@ -31,6 +32,10 @@ export default function TimeLogs() {
     const [logs, setLogs] = useState<LogItem[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Edit State
+    const [editingLog, setEditingLog] = useState<LogItem | null>(null);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+
     useEffect(() => {
         const fetchLogs = async () => {
             try {
@@ -42,7 +47,7 @@ export default function TimeLogs() {
                     return {
                         id: doc.id,
                         type: 'work',
-                        name: data.project_name || 'Unknown Project',
+                        name: data.task_name || data.project_name || 'Unknown Project', // Use task_name if available
                         date: data.date,
                         duration: `${data.hours}h`,
                         rawDate: typeof data.date === 'string' ? new Date(data.date).getTime() : (data.date?.seconds || 0),
@@ -51,7 +56,6 @@ export default function TimeLogs() {
                 });
 
                 // Fetch Habit Logs
-                // Note: Habit logs might use 'completed_at' instead of 'date'
                 const habitQ = query(collection(db, "habit_logs"), orderBy("completed_at", "desc"), limit(50));
                 const habitSnap = await getDocs(habitQ);
                 const habitLogs = habitSnap.docs.map(doc => {
@@ -90,6 +94,42 @@ export default function TimeLogs() {
             console.error("Delete failed:", error);
             alert("Failed to delete log");
         }
+    };
+
+    const handleEditClick = (log: LogItem) => {
+        if (log.type !== 'work') {
+            alert("Editing is only supported for Work Logs currently.");
+            return;
+        }
+        setEditingLog(log);
+        setIsEditOpen(true);
+    };
+
+    const handleUpdateLog = async (id: string, newName: string, newDuration: number) => {
+        const res = await fetch(`${API_BASE}/edit`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                logId: id,
+                newTaskName: newName,
+                newDuration: newDuration,
+                type: 'work_log'
+            })
+        });
+
+        if (!res.ok) throw new Error("Failed to update log");
+
+        // Optimistic Update
+        setLogs(prev => prev.map(l => {
+            if (l.id === id) {
+                return {
+                    ...l,
+                    name: newName,
+                    duration: `${newDuration}h`,
+                };
+            }
+            return l;
+        }));
     };
 
     const formatDate = (date: any) => {
@@ -154,7 +194,7 @@ export default function TimeLogs() {
                         <tbody className="divide-y divide-white/5">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-500 animate-pulse">Loading history...</td>
+                                    <td colSpan={5} className="p-8 text-center text-slate-500 animate-pulse">Loading history...</td>
                                 </tr>
                             ) : logs.length > 0 ? (
                                 logs.map((log, index) => (
@@ -193,25 +233,47 @@ export default function TimeLogs() {
                                             </div>
                                         </td>
                                         <td className="p-5 text-right">
-                                            <button
-                                                onClick={() => handleDelete(log.id, log.type)}
-                                                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                title="Delete Log"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            <div className="flex justify-end items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {/* Edit Button */}
+                                                <button
+                                                    onClick={() => handleEditClick(log)}
+                                                    className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                    title="Edit Log"
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                {/* Delete Button */}
+                                                <button
+                                                    onClick={() => handleDelete(log.id, log.type)}
+                                                    className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Delete Log"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </motion.tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-500">No logs found.</td>
+                                    <td colSpan={5} className="p-8 text-center text-slate-500">No logs found.</td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            <EditLogModal
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                onSave={handleUpdateLog}
+                log={editingLog ? {
+                    id: editingLog.id,
+                    name: editingLog.name,
+                    duration: parseFloat(editingLog.duration) // Parse "2.5h" -> 2.5
+                } : null}
+            />
         </div>
     );
 }

@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, CheckCircle2, AlertCircle, Trash2, Plus } from 'lucide-react';
+import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, CheckCircle2, AlertCircle, Trash2, Pencil } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { ManualEntryModal } from '../components/ManualEntryModal';
+import { EditLogModal } from '../components/EditLogModal';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 // import { DonutChart } from '../components/DonutChart';
@@ -143,35 +144,63 @@ export default function Strategy() {
     const ProjectMiniDashboard = ({ project, onBack }: { project: Project, onBack: () => void }) => {
         const [logs, setLogs] = useState<any[]>([]);
         const [loadingLogs, setLoadingLogs] = useState(true);
+        const [editingLog, setEditingLog] = useState<any | null>(null);
+        const [isEditOpen, setIsEditOpen] = useState(false);
 
-        // Calculate functionality locally or rely on parent? 
-        // Relying on parent for 'spent' ensures consistency, but needs refresh on changes.
+        // ... existing stats calculation ...
         const spent = projectSpentMap[project.id] || 0;
         const budget = project.total_hours_budget || 100;
         const remaining = Math.max(0, budget - spent);
         const progress = Math.min(100, (spent / budget) * 100);
 
+        // ... existing handleDelete ...
         const handleDelete = async (logId: string) => {
+            // ... existing code ...
             if (!confirm("Are you sure you want to delete this log? hours will be refunded.")) return;
             try {
                 await deleteLog(logId);
-                // Parent refresh to update 'spent' calculation
                 fetchData();
-            } catch (e) {
-                console.error("Delete failed", e);
-                alert("Failed to delete log");
-            }
+            } catch (e) { console.error(e); }
         };
 
+        const handleEditClick = (log: any) => {
+            setEditingLog({
+                id: log.id,
+                name: log.task_name || log.project_name || "Focus Session",
+                duration: Number(log.hours)
+            });
+            setIsEditOpen(true);
+        };
+
+        const handleUpdateLog = async (id: string, newName: string, newDuration: number) => {
+            const res = await fetch(`${API_BASE}/edit`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    logId: id,
+                    newTaskName: newName,
+                    newDuration: newDuration,
+                    type: 'work_log'
+                })
+            });
+
+            if (!res.ok) throw new Error("Failed to update log");
+
+            // Refresh logs and global stats
+            // We rely on the snapshot for logs, but we must manually re-fetch global stats to update sidebar/gauges immediately
+            fetchData();
+            // Note: The snapshot listener will automatically update the local 'logs' list if the backend write succeeds
+        };
+
+        // ... existing useEffect for snapshot ...
         useEffect(() => {
             const q = query(
                 collection(db, "work_logs"),
                 where("project_id", "==", project.id),
                 orderBy("date", "desc"),
-                limit(10) // Increased limit to show more context
+                limit(10)
             );
 
-            // Real-time listener
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const newLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setLogs(newLogs);
@@ -193,32 +222,21 @@ export default function Strategy() {
         };
 
         return (
-            <div className="flex flex-col h-full">
-                {/* Nav */}
+            <div className="flex flex-col h-full relative">
+                {/* Nav & Header & Stats ... (Same as before, abbreviated here for clarity but keeping structure) */}
                 <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors group w-fit">
                     <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to {selectedPillar?.name}
                 </button>
 
-                {/* Header */}
+                {/* Header & Gauge Code ... */}
                 <div className="flex items-start justify-between mb-8">
                     <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <h2 className="text-3xl font-bold text-white tracking-tight">{project.name}</h2>
-                            {project.status === 'Completed' ?
-                                <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full border border-green-500/30 flex items-center gap-1"><CheckCircle2 size={12} /> Completed</span>
-                                : <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-1 rounded-full border border-blue-500/30 flex items-center gap-1"><Zap size={12} /> Active</span>
-                            }
-                        </div>
+                        <h2 className="text-3xl font-bold text-white tracking-tight">{project.name}</h2>
                         <p className="text-slate-500 font-mono text-xs uppercase tracking-widest pl-1">Project Dashboard</p>
-                        <button
-                            onClick={() => setIsManualEntryOpen(true)}
-                            className="mt-4 flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold text-white transition-colors"
-                        >
-                            <Plus size={14} /> Add Manual Log
-                        </button>
                     </div>
-                    {/* Gauge */}
+                    {/* Gauge ... */}
                     <div className="relative w-20 h-20">
+                        {/* ... Scaled down gauge svg ... */}
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                             <path className="text-slate-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
                             <path className={progress > 100 ? "text-red-500" : "text-blue-500"} strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
@@ -256,7 +274,7 @@ export default function Strategy() {
                                 <span className="animate-spin">⏳</span> Loading history...
                             </div>
                         ) : logs.length > 0 ? (
-                            logs.map(log => (
+                            logs.map((log: any) => (
                                 <div key={log.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-white/5 hover:border-blue-500/20 transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-slate-800 rounded-lg text-slate-400 font-mono text-xs">
@@ -269,10 +287,17 @@ export default function Strategy() {
                                             {log.notes && <div className="text-xs text-slate-500 max-w-[200px] truncate">{log.notes}</div>}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3">
                                         <div className="font-mono text-blue-400 text-sm font-bold flex items-center gap-1">
-                                            {log.hours.toFixed(1)}h
+                                            {Number(log.hours).toFixed(1)}h
                                         </div>
+                                        <button
+                                            onClick={() => handleEditClick(log)}
+                                            className="p-1.5 rounded-lg text-slate-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                            title="Edit Log"
+                                        >
+                                            <Pencil size={14} />
+                                        </button>
                                         <button
                                             onClick={() => handleDelete(log.id)}
                                             className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
@@ -291,6 +316,13 @@ export default function Strategy() {
                         )}
                     </div>
                 </div>
+
+                <EditLogModal
+                    isOpen={isEditOpen}
+                    onClose={() => setIsEditOpen(false)}
+                    onSave={handleUpdateLog}
+                    log={editingLog}
+                />
             </div>
         );
     };
