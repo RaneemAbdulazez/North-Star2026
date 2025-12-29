@@ -3,9 +3,9 @@ import { db } from '../config/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { ProjectCard } from '../components/ProjectCard';
 import { motion } from 'framer-motion';
-import { DollarSign, Heart, BookOpen, Activity, Zap, TrendingUp, AlertTriangle } from 'lucide-react';
+import { DollarSign, Heart, BookOpen, Activity, Zap, TrendingUp } from 'lucide-react';
 import { DailyProgressCard } from '../components/DailyProgressCard';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Project {
     id: string;
@@ -19,7 +19,7 @@ interface ProjectStats {
     [projectId: string]: number;
 }
 
-const COLORS = ['#3B82F6', '#F59E0B', '#06B6D4', '#EF4444'];
+
 
 export default function Dashboard() {
     const [projects, setProjects] = useState<Project[]>([]);
@@ -34,12 +34,11 @@ export default function Dashboard() {
     });
 
     // Charts Data
-    const [pillarDist, setPillarDist] = useState<any[]>([]);
-    const [weeklyMomentum, setWeeklyMomentum] = useState<any[]>([]);
+
     const [burnDownData, setBurnDownData] = useState<any[]>([]);
     const [totalSpent, setTotalSpent] = useState(0);
     const [burnRate, setBurnRate] = useState(0);
-    const [habitConsistency, setHabitConsistency] = useState(0);
+    const [habitConsistency] = useState(0);
     const [revenueAlignment, setRevenueAlignment] = useState(0);
 
     const QUARTER_BUDGET = 425;
@@ -101,20 +100,7 @@ export default function Dashboard() {
                 });
                 setRevenueAlignment(Math.round((revHours / (spent || 1)) * 100));
 
-                // --- Pillar Dist ---
-                const pillarMap: Record<string, number> = {};
-                logs.forEach(log => {
-                    const proj = projList.find(p => p.id === log.project_id);
-                    const pillar = proj?.pillar_id || "Uncategorized";
-                    pillarMap[pillar] = (pillarMap[pillar] || 0) + Number(log.hours);
-                });
-                setPillarDist(Object.keys(pillarMap).map(k => ({ name: k, value: pillarMap[k] })));
 
-                // --- Momentum --- (Simplified)
-                setWeeklyMomentum([
-                    { day: 'Mon', hours: 4 }, { day: 'Tue', hours: 5 }, { day: 'Wed', hours: 2 },
-                    { day: 'Thu', hours: 6 }, { day: 'Fri', hours: 4 }, { day: 'Sat', hours: 3 }, { day: 'Sun', hours: 1 }
-                ]); // Utilizing mock data here to match previous Analytics logic if raw data isn't ready
 
                 // --- Burn Down ---
                 const burnData = [];
@@ -149,8 +135,7 @@ export default function Dashboard() {
         );
     }
 
-    const remaining = QUARTER_BUDGET - totalSpent;
-    const isBudgetRisk = remaining < (QUARTER_BUDGET * 0.3);
+
 
     return (
         <div className="space-y-12">
