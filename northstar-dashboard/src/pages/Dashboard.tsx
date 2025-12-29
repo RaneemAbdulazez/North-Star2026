@@ -141,7 +141,7 @@ export default function Dashboard() {
         <div className="space-y-12">
 
             {/* DAILY PROGRESS CARD (New Top Section) */}
-            <DailyProgressCard />
+            <DailyProgressCard projectsList={projects} />
 
             {/* NORTH STAR STRATEGY ORBIT */}
             <section className="relative">
