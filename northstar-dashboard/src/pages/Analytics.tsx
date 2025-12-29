@@ -236,7 +236,7 @@ export default function Analytics() {
                 {/* 1. Momentum (Bar) */}
                 <div className="bg-surface/50 border border-white/5 p-6 rounded-3xl">
                     <h3 className="text-lg font-bold text-white mb-6">Weekly Momentum</h3>
-                    <div className="h-64">
+                    <div className="h-64" style={{ minHeight: '250px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={weeklyMomentum}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} vertical={false} />
@@ -255,7 +255,7 @@ export default function Analytics() {
                 {/* 2. Pillar Distribution (Donut) */}
                 <div className="bg-surface/50 border border-white/5 p-6 rounded-3xl">
                     <h3 className="text-lg font-bold text-white mb-6">Pillar Distribution</h3>
-                    <div className="h-64 flex items-center justify-center">
+                    <div className="h-64 flex items-center justify-center" style={{ minHeight: '250px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -281,7 +281,7 @@ export default function Analytics() {
             {/* BURNDOWN AREA */}
             <div className="bg-surface/50 border border-white/5 p-6 rounded-3xl">
                 <h3 className="text-lg font-bold text-white mb-6">Quarterly Burn-Down</h3>
-                <div className="h-72">
+                <div className="h-72" style={{ minHeight: '300px' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={burnDownData}>
                             <defs>
