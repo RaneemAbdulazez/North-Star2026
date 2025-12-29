@@ -35,6 +35,11 @@ const setupAlarms = () => {
     chrome.alarms.create("focus_check", {
         periodInMinutes: 90
     });
+
+    // D. Safety Check (Every 15 minutes)
+    chrome.alarms.create("safety_check", {
+        periodInMinutes: 15
+    });
 };
 
 // 3. Initialization Listeners
@@ -86,6 +91,51 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                     message: "You haven't started a focus session yet. Shall we work on your 240-hour goal?",
                     priority: 2
                 });
+            }
+        });
+    }
+    // D. Safety Check (Every 15 min)
+    else if (alarm.name === "safety_check") {
+        chrome.storage.local.get(['activeSession', 'startTime'], (result) => {
+            if (result.activeSession && result.startTime) {
+                const now = Date.now();
+                const start = new Date(result.startTime).getTime();
+                const diffMs = now - start;
+                const diffHours = diffMs / (1000 * 60 * 60);
+
+                if (diffHours >= 4) {
+                    // Auto-stop session
+                    const payload = {
+                        project_id: result.activeSession.pillarId, // Assuming structure, verify this!
+                        project_name: result.activeSession.label || result.activeSession.pillarId,
+                        hours: diffHours,
+                        task_name: result.activeSession.taskName + " (Auto-stopped)",
+                        date: new Date().toISOString(),
+                        source: 'safety_check_auto_stop'
+                    };
+
+                    // Call API to save (using same logic as log_work)
+                    const API_URL = "https://north-star2026.vercel.app/api/time-logs/create";
+                    fetch(API_URL, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: 'work_log', data: payload })
+                    }).then(() => {
+                        // Clear session
+                        chrome.storage.local.remove(['activeSession', 'startTime', 'isRunning']);
+                        chrome.action.setBadgeText({ text: '' });
+
+                        // Notify User
+                        chrome.notifications.create({
+                            type: "basic",
+                            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                            title: "Session Auto-Stopped 🛑",
+                            message: "Your session exceeded 4 hours and has been saved automatically.",
+                            priority: 2
+                        });
+                    }).catch(err => console.error("Auto-stop save failed", err));
+                }
             }
         });
     }

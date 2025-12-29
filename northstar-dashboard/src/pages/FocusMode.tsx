@@ -82,7 +82,7 @@ export default function FocusMode() {
         if (!item) return;
 
         try {
-            const res = await fetch('/api/sessions/manage', {
+            const res = await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -110,7 +110,7 @@ export default function FocusMode() {
         setStopping(true);
 
         try {
-            await fetch('/api/sessions/manage', {
+            await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'stop' })

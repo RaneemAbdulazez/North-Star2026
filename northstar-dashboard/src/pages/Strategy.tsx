@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, Calendar, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Target, TrendingUp, Shield, Zap, Heart, Brain, X, ChevronRight, ChevronLeft, Clock, CheckCircle2, AlertCircle, Trash2, Plus } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ManualEntryModal } from '../components/ManualEntryModal';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 // import { DonutChart } from '../components/DonutChart';
@@ -26,12 +27,29 @@ interface PillarStats {
     progress: number;
 }
 
-interface Log {
-    id: string;
-    date: string;
-    hours: number;
-    description?: string;
-}
+
+// API Helpers
+const API_BASE = "https://north-star2026.vercel.app/api/time-logs";
+
+const createLog = async (data: any) => {
+    const res = await fetch(`${API_BASE}/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'work_log', data })
+    });
+    if (!res.ok) throw new Error("Failed to create log");
+    return res.json();
+};
+
+const deleteLog = async (id: string) => {
+    const res = await fetch(`${API_BASE}/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type: 'work_log' })
+    });
+    if (!res.ok) throw new Error("Failed to delete log");
+    return res.json();
+};
 
 export default function Strategy() {
     const [pillars, setPillars] = useState<Pillar[]>([]);
@@ -43,67 +61,69 @@ export default function Strategy() {
     // Navigation State
     const [selectedPillar, setSelectedPillar] = useState<Pillar | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+
+    const fetchData = useCallback(async () => {
+        try {
+            // 1. Fetch Pillars
+            const pillarsSnap = await getDocs(collection(db, "pillars"));
+            const pillarsData = pillarsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pillar));
+            setPillars(pillarsData);
+
+            // 2. Fetch Projects
+            const projectsSnap = await getDocs(collection(db, "projects"));
+            const projectsData = projectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+            setProjects(projectsData);
+
+            // 3. Fetch Logs for Spent Hours (Aggregate)
+            const logsSnap = await getDocs(collection(db, "work_logs"));
+            const pSpent: Record<string, number> = {};
+
+            logsSnap.forEach(doc => {
+                const data = doc.data();
+                const pid = data.project_id;
+                const hours = Number(data.hours) || 0;
+                if (pid) {
+                    pSpent[pid] = (pSpent[pid] || 0) + hours;
+                }
+            });
+            setProjectSpentMap(pSpent);
+
+            // 4. Calculate Pillar Stats
+            const stats: Record<string, PillarStats> = {};
+
+            pillarsData.forEach(pillar => {
+                const relevantProjects = projectsData.filter(p => p.pillar_id === pillar.name || p.pillar_id === pillar.id);
+
+                let totalSpent = 0;
+                let totalBudget = 0;
+
+                relevantProjects.forEach(p => {
+                    totalSpent += (pSpent[p.id] || 0);
+                    totalBudget += (p.total_hours_budget || 0);
+                });
+
+                const progress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+                stats[pillar.id] = {
+                    spent: totalSpent,
+                    budget: totalBudget,
+                    progress: Math.min(progress, 100)
+                };
+            });
+
+            setPillarStats(stats);
+
+        } catch (error) {
+            console.error("Error loading strategy data:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // 1. Fetch Pillars
-                const pillarsSnap = await getDocs(collection(db, "pillars"));
-                const pillarsData = pillarsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pillar));
-                setPillars(pillarsData);
-
-                // 2. Fetch Projects
-                const projectsSnap = await getDocs(collection(db, "projects"));
-                const projectsData = projectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
-                setProjects(projectsData);
-
-                // 3. Fetch Logs for Spent Hours (Aggregate)
-                const logsSnap = await getDocs(collection(db, "work_logs"));
-                const pSpent: Record<string, number> = {};
-
-                logsSnap.forEach(doc => {
-                    const data = doc.data();
-                    const pid = data.project_id;
-                    const hours = Number(data.hours) || 0;
-                    if (pid) {
-                        pSpent[pid] = (pSpent[pid] || 0) + hours;
-                    }
-                });
-                setProjectSpentMap(pSpent);
-
-                // 4. Calculate Pillar Stats
-                const stats: Record<string, PillarStats> = {};
-
-                pillarsData.forEach(pillar => {
-                    const relevantProjects = projectsData.filter(p => p.pillar_id === pillar.name || p.pillar_id === pillar.id);
-
-                    let totalSpent = 0;
-                    let totalBudget = 0;
-
-                    relevantProjects.forEach(p => {
-                        totalSpent += (pSpent[p.id] || 0);
-                        totalBudget += (p.total_hours_budget || 0);
-                    });
-
-                    const progress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-                    stats[pillar.id] = {
-                        spent: totalSpent,
-                        budget: totalBudget,
-                        progress: Math.min(progress, 100)
-                    };
-                });
-
-                setPillarStats(stats);
-
-            } catch (error) {
-                console.error("Error loading strategy data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     const getIcon = (name: string) => {
         const lower = name.toLowerCase();
@@ -124,10 +144,24 @@ export default function Strategy() {
         const [logs, setLogs] = useState<any[]>([]);
         const [loadingLogs, setLoadingLogs] = useState(true);
 
+        // Calculate functionality locally or rely on parent? 
+        // Relying on parent for 'spent' ensures consistency, but needs refresh on changes.
         const spent = projectSpentMap[project.id] || 0;
         const budget = project.total_hours_budget || 100;
         const remaining = Math.max(0, budget - spent);
         const progress = Math.min(100, (spent / budget) * 100);
+
+        const handleDelete = async (logId: string) => {
+            if (!confirm("Are you sure you want to delete this log? hours will be refunded.")) return;
+            try {
+                await deleteLog(logId);
+                // Parent refresh to update 'spent' calculation
+                fetchData();
+            } catch (e) {
+                console.error("Delete failed", e);
+                alert("Failed to delete log");
+            }
+        };
 
         useEffect(() => {
             const q = query(
@@ -176,6 +210,12 @@ export default function Strategy() {
                             }
                         </div>
                         <p className="text-slate-500 font-mono text-xs uppercase tracking-widest pl-1">Project Dashboard</p>
+                        <button
+                            onClick={() => setIsManualEntryOpen(true)}
+                            className="mt-4 flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold text-white transition-colors"
+                        >
+                            <Plus size={14} /> Add Manual Log
+                        </button>
                     </div>
                     {/* Gauge */}
                     <div className="relative w-20 h-20">
@@ -229,8 +269,17 @@ export default function Strategy() {
                                             {log.notes && <div className="text-xs text-slate-500 max-w-[200px] truncate">{log.notes}</div>}
                                         </div>
                                     </div>
-                                    <div className="font-mono text-blue-400 text-sm font-bold flex items-center gap-1">
-                                        {log.hours.toFixed(1)}h
+                                    <div className="flex items-center gap-4">
+                                        <div className="font-mono text-blue-400 text-sm font-bold flex items-center gap-1">
+                                            {log.hours.toFixed(1)}h
+                                        </div>
+                                        <button
+                                            onClick={() => handleDelete(log.id)}
+                                            className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                            title="Delete Log"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 </div>
                             ))
@@ -448,6 +497,17 @@ export default function Strategy() {
                     </>
                 )}
             </AnimatePresence>
+            {/* Manual Entry Modal */}
+            <ManualEntryModal
+                isOpen={isManualEntryOpen}
+                onClose={() => setIsManualEntryOpen(false)}
+                onSave={async (data) => {
+                    await createLog(data);
+                    fetchData(); // Refresh stats
+                }}
+                initialProject={selectedProject || undefined}
+                allProjects={projects}
+            />
         </div>
     );
 }

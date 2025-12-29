@@ -56,7 +56,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
                 project_name: data.project_name || 'Unknown',
                 hours: Number(data.hours),
                 focus_score: data.focus_score || 3,
-                date: new Date(),
+                date: data.date ? new Date(data.date) : new Date(),
                 created_at: new Date(),
                 source: 'chrome_extension_api'
             });

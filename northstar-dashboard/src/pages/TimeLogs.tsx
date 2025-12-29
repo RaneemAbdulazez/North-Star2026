@@ -1,8 +1,21 @@
 import { motion } from 'framer-motion';
-import { History, Calendar, Clock, Search, Zap, Briefcase } from 'lucide-react';
+import { History, Calendar, Clock, Search, Zap, Briefcase, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+
+// API Helpers
+const API_BASE = "https://north-star2026.vercel.app/api/time-logs";
+
+const deleteLog = async (id: string, type: 'work_log' | 'habit_log') => {
+    const res = await fetch(`${API_BASE}/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, type })
+    });
+    if (!res.ok) throw new Error("Failed to delete log");
+    return res.json();
+};
 
 interface LogItem {
     id: string;
@@ -67,6 +80,18 @@ export default function TimeLogs() {
         fetchLogs();
     }, []);
 
+    const handleDelete = async (id: string, type: 'work' | 'habit') => {
+        if (!confirm("Are you sure you want to delete this log?")) return;
+        try {
+            await deleteLog(id, type === 'work' ? 'work_log' : 'habit_log');
+            // Optimistic update
+            setLogs(prev => prev.filter(l => l.id !== id));
+        } catch (error) {
+            console.error("Delete failed:", error);
+            alert("Failed to delete log");
+        }
+    };
+
     const formatDate = (date: any) => {
         if (!date) return '-';
         let d: Date;
@@ -123,6 +148,7 @@ export default function TimeLogs() {
                                 <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Activity</th>
                                 <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Type</th>
                                 <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider">Duration</th>
+                                <th className="p-5 text-xs font-bold text-slate-300 uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -165,6 +191,15 @@ export default function TimeLogs() {
                                                 <Clock size={14} className="text-slate-500" />
                                                 {log.duration}
                                             </div>
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <button
+                                                onClick={() => handleDelete(log.id, log.type)}
+                                                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                title="Delete Log"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
                                         </td>
                                     </motion.tr>
                                 ))
