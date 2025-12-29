@@ -129,7 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const endTime = Date.now();
 
             // Calculate Wall Clock Duration
-            const wallDurationSec = Math.floor((endTime - data.start_time) / 1000);
+            const startTimeMs = typeof data.start_time === 'string' ? new Date(data.start_time).getTime() : data.start_time;
+            const wallDurationSec = Math.floor((endTime - startTimeMs) / 1000);
 
             // Calculate Breaks
             let breaks = data.breaks || [];

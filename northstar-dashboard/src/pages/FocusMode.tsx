@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Square, ArrowLeft, MoreHorizontal, Play, Briefcase, Pause, PlayCircle } from 'lucide-react';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { collection, getDocs, query } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 
 interface TrackerItem {
     id: string;
@@ -93,34 +93,92 @@ export default function FocusMode() {
 
     // 3. Handlers
     const handleStart = async () => {
-        // ... (existing start code)
-        if (!selectedId || !taskName.trim() || starting) return;
+        // Prevent double clicks
+        if (starting) return;
+
+        // 1. Validation
+        if (!selectedId) {
+            alert("Please select a Project or Habit.");
+            return;
+        }
+        if (!taskName.trim()) {
+            alert("Please enter a specific task name.");
+            return;
+        }
+
         setStarting(true);
-
         const item = items.find(i => i.id === selectedId);
-        if (!item) return;
 
-        try {
-            const res = await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+        // Retry Logic Helper
+        const attemptStart = async (retryCount = 0): Promise<void> => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s Timeout
+
+            try {
+                // Get Token (Ensure fresh auth state)
+                const token = await auth.currentUser?.getIdToken();
+
+                // Prepare Payload with UTC ISO String
+                const payload = {
                     action: 'start',
                     payload: {
-                        itemId: item.id,
-                        itemType: item.type,
-                        itemName: taskName, // Using user typed task name
-                        startTime: Date.now()
+                        itemId: item?.id,
+                        itemType: item?.type,
+                        itemName: taskName,
+                        startTime: new Date().toISOString() // ISO String as requested
                     }
-                })
-            });
+                };
 
-            if (!res.ok) throw new Error("Failed to start");
-        } catch (error) {
-            console.error(error);
-            alert("Failed to start session");
-            setStarting(false);
-        }
+                const res = await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    // Try to parse JSON error if possible
+                    let errorMessage = errorText;
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        if (errorJson.error) errorMessage = errorJson.error;
+                    } catch (e) { /* ignore */ }
+
+                    throw new Error(`Server Error: ${res.status} - ${errorMessage}`);
+                }
+
+                // Success
+                setStarting(false);
+
+            } catch (error: any) {
+                clearTimeout(timeoutId);
+                console.error(`Attempt ${retryCount + 1} failed:`, error);
+
+                // Handle Abort/Timeout specifically
+                if (error.name === 'AbortError') {
+                    error.message = "Request Timed Out (10s)";
+                }
+
+                // Retry up to 1 time
+                if (retryCount < 1) {
+                    // Exponential backoff or just wait 1s
+                    await new Promise(r => setTimeout(r, 1000));
+                    return attemptStart(retryCount + 1);
+                }
+
+                // Final Failure
+                alert(`Failed to start session. \nReason: ${error.message || "Network Error"}`);
+                setStarting(false);
+            }
+        };
+
+        await attemptStart();
     };
 
     const handleStop = async () => {
