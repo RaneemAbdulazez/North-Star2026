@@ -1,5 +1,14 @@
 {
+    "cleanUrls": true,
     "rewrites": [
+        {
+            "source": "/api/sessions/manage",
+            "destination": "/api/sessions/manage.ts"
+        },
+        {
+            "source": "/api/time-logs/daily-stats",
+            "destination": "/api/time-logs/daily-stats.ts"
+        },
         {
             "source": "/api/(.*)",
             "destination": "/api/$1"

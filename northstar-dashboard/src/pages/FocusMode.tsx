@@ -143,15 +143,15 @@ export default function FocusMode() {
                 clearTimeout(timeoutId);
 
                 if (!res.ok) {
-                    const errorText = await res.text();
-                    // Try to parse JSON error if possible
-                    let errorMessage = errorText;
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        if (errorJson.error) errorMessage = errorJson.error;
-                    } catch (e) { /* ignore */ }
-
-                    throw new Error(`${res.status}: ${errorMessage}`);
+                    const contentType = res.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        const errorJson = await res.json();
+                        throw new Error(`${res.status}: ${errorJson.error || "Unknown Error"}`);
+                    } else {
+                        // It's likely HTML (404/500 page)
+                        const text = await res.text();
+                        throw new Error(`Server Error ${res.status}: ${text.substring(0, 50)}...`);
+                    }
                 }
 
                 // Success
