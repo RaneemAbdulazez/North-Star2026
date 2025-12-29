@@ -208,12 +208,60 @@ chrome.notifications.onClicked.addListener(() => {
     chrome.tabs.create({ url: DASHBOARD_URL });
 });
 
-chrome.notifications.onButtonClicked.addListener((id, _btnIdx) => {
-    if (id === "notification_plan") {
-        chrome.tabs.create({ url: PLANNER_URL });
-    } else if (id === "notification_morning") {
-        chrome.tabs.create({ url: DAILY_PLAN_URL });
-    } else {
-        chrome.tabs.create({ url: DASHBOARD_URL });
+
+
+// 4. Message Handler (for Bubble & Popup State Sync)
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    // A. GET_STATUS
+    if (message.action === "GET_STATUS") {
+        (async () => {
+            try {
+                // Fetch Session Status
+                const sessionRes = await fetch(`${API_BASE}/sessions/manage?action=get`);
+                const sessionData = await sessionRes.json();
+
+                // Fetch Daily Stats
+                const dailyRes = await fetch(`${API_BASE}/time-logs/daily-stats`);
+                const dailyData = await dailyRes.json();
+
+                sendResponse({
+                    success: true,
+                    session: sessionData,
+                    daily: dailyData
+                });
+            } catch (e) {
+                console.error("GET_STATUS failed", e);
+                sendResponse({ success: false, error: (e as any).message });
+            }
+        })();
+        return true; // async response
+    }
+
+    // B. SESSION CONTROLS
+    if (["START", "STOP", "PAUSE", "RESUME"].includes(message.action)) {
+        (async () => {
+            // For simplicity, we just pass the action to the manage API or handle logic here
+            // The API expects 'start', 'stop', 'pause', 'resume' usually
+            const apiAction = message.action.toLowerCase();
+
+            try {
+                const body: any = { action: apiAction };
+                if (message.payload) {
+                    Object.assign(body, message.payload); // e.g. task_name, project_id for START
+                }
+
+                await fetch(`${API_BASE}/sessions/manage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                // Notify status update immediately?
+                sendResponse({ success: true });
+            } catch (e) {
+                sendResponse({ success: false, error: (e as any).message });
+            }
+        })();
+        return true;
     }
 });
