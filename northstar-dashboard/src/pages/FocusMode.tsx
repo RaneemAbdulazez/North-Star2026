@@ -130,7 +130,8 @@ export default function FocusMode() {
                     }
                 };
 
-                const res = await fetch('https://north-star2026.vercel.app/api/sessions/manage', {
+                const API_BASE = "https://north-star2026.vercel.app/api";
+                const res = await fetch(`${API_BASE}/sessions/manage`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
