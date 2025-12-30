@@ -36,18 +36,11 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         return res.redirect(authorizationUrl);
 
     } catch (error: any) {
-        console.error("Critical Auth Error:", error);
-        // Clean error message for user
-        const msg = error.message || "Unknown Auth Error";
+        console.error("Auth Route Error:", error);
         return res.status(500).json({
-            error: "Authentication Failed",
-            message: msg,
-            stack: error.stack,
-            env_check: {
-                has_client_id: !!process.env.GOOGLE_CLIENT_ID,
-                has_client_secret: !!process.env.GOOGLE_CLIENT_SECRET,
-                redirect_uri: process.env.GOOGLE_REDIRECT_URI
-            }
+            error: error.message,
+            location: "OAuth Initialization",
+            stack: error.stack
         });
     }
 }

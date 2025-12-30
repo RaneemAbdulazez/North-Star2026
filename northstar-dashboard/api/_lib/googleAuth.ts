@@ -5,6 +5,12 @@ export const getOAuth2Client = () => {
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://north-star2026.vercel.app/api/auth/google/callback';
 
+    // Safe Debug Logging
+    console.log("DEBUG: Google Auth Init");
+    console.log("Client ID present:", !!process.env.GOOGLE_CLIENT_ID);
+    console.log("Client Secret present:", !!process.env.GOOGLE_CLIENT_SECRET);
+    console.log("Redirect URI:", redirectUri);
+
     if (!clientId) console.error("Missing GOOGLE_CLIENT_ID");
     if (!clientSecret) console.error("Missing GOOGLE_CLIENT_SECRET");
 
