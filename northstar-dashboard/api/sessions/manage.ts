@@ -10,6 +10,7 @@ const handleCors = (res: VercelResponse) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    console.log(`API CALLED: ${req.method} ${req.url}`);
     handleCors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
