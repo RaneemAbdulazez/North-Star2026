@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Wand2, Briefcase, BarChart3, ChevronRight, Target, History, Settings, Activity, Zap } from 'lucide-react';
+import { LayoutDashboard, Wand2, Briefcase, BarChart3, ChevronRight, Target, History, Settings, Activity, Zap, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -68,6 +68,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     <ActiveSessionNavItem onClick={onClose} />
 
                     <NavItem to="/daily-path" icon={<Wand2 size={20} />} label="Daily Path" onClick={onClose} />
+                    <NavItem to="/planner" icon={<Calendar size={20} />} label="Weekly Planner" onClick={onClose} />
 
                     <div className="my-4 px-2">
                         <div className="h-px bg-gradient-to-r from-transparent via-blue-900/50 to-transparent" />
