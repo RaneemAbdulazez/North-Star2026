@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+
 import { Calendar, RefreshCw, CheckCircle2, GripVertical, AlertCircle, Sparkles } from 'lucide-react';
 import { initGoogleClient, signInToGoogle, fetchCalendarEvents } from '../services/googleCalendar';
 import {
@@ -7,8 +7,8 @@ import {
     DragOverlay,
     useDraggable,
     useDroppable,
-    DragStartEvent,
-    DragEndEvent,
+    type DragStartEvent,
+    type DragEndEvent,
     rectIntersection
 } from '@dnd-kit/core';
 
@@ -25,7 +25,7 @@ const API_BASE = "/api";
 
 export default function WeeklyPlanner() {
     const [isConnected, setIsConnected] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [loading] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -177,8 +177,8 @@ export default function WeeklyPlanner() {
                     <button
                         onClick={handleSync}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isConnected
-                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                : 'bg-white text-slate-900 hover:bg-slate-200'
+                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                            : 'bg-white text-slate-900 hover:bg-slate-200'
                             }`}
                     >
                         {loading ? <RefreshCw className="animate-spin" size={18} /> : isConnected ? <CheckCircle2 size={18} /> : <span>G</span>}
