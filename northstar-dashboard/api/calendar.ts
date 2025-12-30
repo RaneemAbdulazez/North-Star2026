@@ -25,7 +25,14 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         oauth2Client = getOAuth2Client();
     } catch (e: any) {
         console.error("OAuth Config Error:", e.message);
-        return res.status(400).json({ error: "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET env vars." });
+        return res.status(400).json({
+            error: "Environment Configuration Error",
+            message: "Missing Google Environment Variables",
+            env_check: {
+                has_client_id: !!process.env.GOOGLE_CLIENT_ID,
+                has_client_secret: !!process.env.GOOGLE_CLIENT_SECRET
+            }
+        });
     }
 
     try {
