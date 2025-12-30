@@ -39,8 +39,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         console.error("Auth Route Error:", error);
         return res.status(500).json({
             error: error.message,
-            location: "OAuth Initialization",
-            stack: error.stack
+            details: error.toString()
         });
     }
 }

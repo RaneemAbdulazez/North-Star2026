@@ -51,7 +51,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         // If strict separation, we'd want 'http://localhost:5173/weekly-planner?connected=true'
         // For production, we can deduce from REFERER or config.
 
-        const frontendUrl = process.env.VITE_BASE_URL || 'http://localhost:5173';
+        const frontendUrl = 'https://north-star2026.vercel.app';
         const redirectUrl = `${frontendUrl}/weekly-planner?google_connected=true`;
 
         return res.redirect(redirectUrl);

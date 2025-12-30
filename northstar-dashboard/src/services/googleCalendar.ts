@@ -10,6 +10,10 @@ export const fetchCalendarEvents = async (timeMin: Date, timeMax: Date) => {
     const response = await fetch(`/api/calendar?start=${start}&end=${end}`);
 
     if (response.status === 401) {
+        const data = await response.json();
+        if (data.authUrl) {
+            window.location.href = data.authUrl;
+        }
         throw new Error("unauthorized");
     }
 

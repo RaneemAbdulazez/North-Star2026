@@ -124,7 +124,7 @@ export function DailyProgressCard({ projectsList = [] }: Props) {
 
 
     return (
-        <section className={`relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br ${theme.bg} p-6 transition-colors duration-1000`}>
+        <section className={`relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br ${theme.bg} p-6 transition-colors duration-1000 min-h-[300px]`}>
 
             {/* Header: Date & Time Context */}
             <div className="flex items-center justify-between mb-8 relative z-10">

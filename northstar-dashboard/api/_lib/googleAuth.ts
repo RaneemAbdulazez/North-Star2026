@@ -1,24 +1,21 @@
 import { google } from 'googleapis';
 
 export const getOAuth2Client = () => {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    // TODO: REMOVE HARDCODED SECRETS AFTER TESTING
+    const clientId = process.env.GOOGLE_CLIENT_ID || "66143510660-v33r72bumkv4di8uofi4fero4pgrnjk0.apps.googleusercontent.com";
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "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";
     const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://north-star2026.vercel.app/api/auth/google/callback';
 
     // Safe Debug Logging
-    console.log("DEBUG: Google Auth Init");
-    console.log("Client ID present:", !!process.env.GOOGLE_CLIENT_ID);
-    console.log("Client Secret present:", !!process.env.GOOGLE_CLIENT_SECRET);
-    console.log("Redirect URI:", redirectUri);
+    console.log("DEBUG [googleAuth]: Initializing...");
+    console.log("DEBUG [googleAuth]: GOOGLE_CLIENT_ID present?", !!clientId);
+    console.log("DEBUG [googleAuth]: GOOGLE_CLIENT_SECRET present?", !!clientSecret);
 
-    if (!clientId) console.error("Missing GOOGLE_CLIENT_ID");
-    if (!clientSecret) console.error("Missing GOOGLE_CLIENT_SECRET");
-
-    // Log intent without leaking secrets
-    console.log("Initializing Google OAuth with redirect:", redirectUri);
-
-    if (!clientId || !clientSecret) {
-        throw new Error('Missing Google OAuth credentials');
+    if (!clientId) {
+        throw new Error('CONFIG ERROR: GOOGLE_CLIENT_ID is missing from Environment Variables.');
+    }
+    if (!clientSecret) {
+        throw new Error('CONFIG ERROR: GOOGLE_CLIENT_SECRET is missing from Environment Variables.');
     }
 
     return new google.auth.OAuth2(

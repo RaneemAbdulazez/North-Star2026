@@ -52,11 +52,10 @@ export default function WeeklyPlanner() {
         if (params.get('google_connected') === 'true') {
             setIsConnected(true);
             window.history.replaceState({}, '', window.location.pathname);
+            // Only load calendar if we just connected
+            setTimeout(() => loadCalendar(days[0], days[6]), 500);
         }
-
-        // Try loading calendar if we think we might be connected or just to check
-        // Passing the days explicitly
-        setTimeout(() => loadCalendar(days[0], days[6]), 1000);
+        // DO NOT auto-load otherwise to prevent 401 loop
     }, []);
 
     const loadTasks = async () => {
@@ -158,7 +157,11 @@ export default function WeeklyPlanner() {
                         loadCalendar();
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
+                if (err.message === "unauthorized") {
+                    window.location.href = '/api/auth/google';
+                    return;
+                }
                 console.error("Failed to schedule task", err);
             }
         }
@@ -190,14 +193,20 @@ export default function WeeklyPlanner() {
                     </div>
 
                     <button
-                        onClick={handleSync}
+                        onClick={() => {
+                            if (!isConnected) {
+                                window.location.href = '/api/auth/google';
+                            } else {
+                                handleSync();
+                            }
+                        }}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isConnected
                             ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                             : 'bg-white text-slate-900 hover:bg-slate-200'
                             }`}
                     >
                         {loading ? <RefreshCw className="animate-spin" size={18} /> : isConnected ? <CheckCircle2 size={18} /> : <span>G</span>}
-                        {isConnected ? 'Synced' : 'Sync Calendar'}
+                        {isConnected ? 'Synced' : 'Connect Google Calendar'}
                     </button>
                 </header>
 
