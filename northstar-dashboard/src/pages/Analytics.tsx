@@ -237,18 +237,22 @@ export default function Analytics() {
                 <div className="bg-surface/50 border border-white/5 p-6 rounded-3xl">
                     <h3 className="text-lg font-bold text-white mb-6">Weekly Momentum</h3>
                     <div className="w-full h-[300px] min-h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyMomentum}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} vertical={false} />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                    cursor={{ fill: '#3b82f6', opacity: 0.1 }}
-                                />
-                                <Bar dataKey="hours" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {weeklyMomentum.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={weeklyMomentum}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} vertical={false} />
+                                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px' }}
+                                        itemStyle={{ color: '#fff' }}
+                                        cursor={{ fill: '#3b82f6', opacity: 0.1 }}
+                                    />
+                                    <Bar dataKey="hours" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-500">No data available</div>
+                        )}
                     </div>
                 </div>
 
