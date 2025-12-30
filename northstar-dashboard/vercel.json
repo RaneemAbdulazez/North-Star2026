@@ -1,11 +1,20 @@
 {
+    "version": 2,
     "rewrites": [
+        {
+            "source": "/api/auth/(.*)",
+            "destination": "/api/auth/$1"
+        },
+        {
+            "source": "/api/calendar/(.*)",
+            "destination": "/api/calendar/$1"
+        },
         {
             "source": "/api/(.*)",
             "destination": "/api/$1"
         },
         {
-            "source": "/((?!api/.*).*)",
+            "source": "/(.*)",
             "destination": "/index.html"
         }
     ]
