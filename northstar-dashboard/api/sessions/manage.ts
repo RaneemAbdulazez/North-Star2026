@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from '../../src/lib/firebaseAdmin';
+import { getDb } from '../_lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 // Helper to handle CORS
