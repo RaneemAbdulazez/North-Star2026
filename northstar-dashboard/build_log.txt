@@ -1,0 +1,72 @@
+
+> northstar-dashboard@0.0.0 build
+> tsc -b && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 2378 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/registerSW.js                  0.13 kB
+dist/manifest.webmanifest           0.38 kB
+dist/index.html                     0.88 kB │ gzip:   0.45 kB
+dist/assets/index-Boq6NmYO.css     50.93 kB │ gzip:   8.34 kB
+dist/assets/index-D20QCnik.js   1,337.51 kB │ gzip: 371.04 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+@vercel/build is currently force building /api files itself, with no way to disable it. In order to avoid double compilation, you should temporarily rename /api to /_api while using this plugin. /_api functions are compiled under .vercel/output/functions/api/*.func as if they were in /api.
+
+  .vercel/output/functions/api/debug.func/index.mjs  785b 
+
+⚡ Done in 3ms
+
+  .vercel/output/functions/api/health.func/index.mjs  559b 
+
+⚡ Done in 2ms
+
+  .vercel/output/functions/api/ping.func/index.mjs  454b 
+
+⚡ Done in 2ms
+
+  .vercel/output/functions/api/test.func/index.mjs  459b 
+
+⚡ Done in 2ms
+
+  .vercel/output/functions/api/_lib/firebaseAdmin.func/index.mjs  4.9mb ⚠️
+
+⚡ Done in 137ms
+
+  .vercel/output/functions/api/_lib/googleAuth.func/index.mjs  29.8mb ⚠️
+
+⚡ Done in 423ms
+✘ [ERROR] Could not resolve "../../_lib/googleAuth.js"
+
+    api/auth/google.ts:2:32:
+      2 │ import { getOAuth2Client } from '../../_lib/googleAuth.js';
+        ╵                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1 error
+x Build failed in 14.46s
+
+PWA v1.2.0
+mode      generateSW
+precache  9 entries (1361.29 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-8c29f6e4.js
+error during build:
+[vite-plugin-vercel] Build failed with 1 error:
+api/auth/google.ts:2:32: ERROR: Could not resolve "../../_lib/googleAuth.js"
+    at failureErrorWithLog (/home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:1467:15)
+    at /home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:926:25
+    at runOnEndCallbacks (/home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:1307:45)
+    at buildResponseToResult (/home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:924:7)
+    at /home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:951:16
+    at responseCallbacks.<computed> (/home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/home/raneem/North_star/northstar-dashboard/node_modules/vite-plugin-vercel/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:517:28)
+    at addChunk (node:internal/streams/readable:368:12)

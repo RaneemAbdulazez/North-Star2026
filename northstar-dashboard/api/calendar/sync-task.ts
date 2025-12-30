@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
-import { getOAuth2Client } from '../../_lib/googleAuth.js';
-import { getDb } from '../../_lib/firebaseAdmin.js';
+import { getOAuth2Client } from '../_lib/googleAuth.js';
+import { getDb } from '../_lib/firebaseAdmin.js';
 
 const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) => {
     res.setHeader('Access-Control-Allow-Credentials', 'true');

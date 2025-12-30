@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getOAuth2Client } from '../../_lib/googleAuth.js';
+import { getOAuth2Client } from '../_lib/googleAuth.js';
 
 const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) => {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
