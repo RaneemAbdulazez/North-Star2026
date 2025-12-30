@@ -25,40 +25,50 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
+        console.log("CRITICAL: Auth Callback Hit");
+
         const oauth2Client = getOAuth2Client();
+        console.log("Exchanging code for tokens...");
         const { tokens } = await oauth2Client.getToken(code);
+        console.log("Tokens received (Masked):", !!tokens.access_token);
 
-        // Store tokens in Firestore
-        // Since we don't have a user session, we'll store in a default user doc or a 'settings' doc.
-        // Let's use 'settings/google_calendar' or similar. 
-        // Given 'tasks' are global, 'settings' should be too.
-
+        console.log("Initializing Firestore...");
         const db = getDb();
+        const userId = 'default';
 
-        // Use a fixed ID for the single user of this dashboard
-        await db.collection('settings').doc('google_calendar').set({
+        console.log(`Saving tokens for user: ${userId}...`);
+
+        // Explicitly await and check result
+        await db.collection('users').doc(userId).collection('integrations').doc('google').set({
             ...tokens,
             updatedAt: new Date().toISOString()
         }, { merge: true });
 
-        // Redirect back to the implementation
-        // For now, redirect to the main planner page
-        // We'll assume the frontend is running on localhost:5173 or we can redirect to '/'
-        // But in production it might be different. 
-        // Best to redirect to the frontend URL.
+        console.log("Tokens saved successfully. Redirecting...");
 
-        // Determine frontend URL (simplified for now)
-        // If strict separation, we'd want 'http://localhost:5173/weekly-planner?connected=true'
-        // For production, we can deduce from REFERER or config.
-
+        // Redirect to frontend
         const frontendUrl = 'https://north-star2026.vercel.app';
-        const redirectUrl = `${frontendUrl}/weekly-planner?google_connected=true`;
-
-        return res.redirect(redirectUrl);
+        return res.redirect(`${frontendUrl}/weekly-planner?sync=true`);
 
     } catch (error: any) {
-        console.error("Auth Callback Error:", error);
-        return res.status(500).json({ error: error.message });
+        console.error("Auth Callback Fatal Error:", error);
+
+        // Persist error to DB for debugging
+        try {
+            const db = getDb();
+            await db.collection('_debug').doc('auth_error').set({
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+            });
+        } catch (filesysError) {
+            console.error("Failed to log error to DB:", filesysError);
+        }
+
+        // Redirect with error param so user sees it
+        const frontendUrl = 'https://north-star2026.vercel.app';
+        const errorMsg = encodeURIComponent(error.message || "Unknown Callback Error");
+        return res.redirect(`${frontendUrl}/weekly-planner?sync=false&error=${errorMsg}`);
     }
 }
 

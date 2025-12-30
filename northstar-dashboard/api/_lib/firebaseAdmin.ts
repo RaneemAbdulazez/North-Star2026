@@ -1,10 +1,11 @@
-import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
+
+import { initializeApp, getApps, getApp, cert, type App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin SDK for Server-Side Contexts (Vercel Functions, API Routes)
 // This file must NOT be imported in client-side components (React pages).
 
-const getFirebaseAdmin = () => {
+const getFirebaseAdmin = (): App => {
     // Check if any app is already initialized
     if (getApps().length > 0) {
         return getApp();
@@ -12,7 +13,14 @@ const getFirebaseAdmin = () => {
 
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+    // Aggressive sanitization of Private Key for Vercel environments
+    // 1. Replace literal '\n' string with actual newlines
+    // 2. Remove surrounding quotes if present
+    const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+    const privateKey = rawKey
+        ? rawKey.replace(/\\n/g, '\n').replace(/^"|"$/g, '')
+        : undefined;
 
     if (!projectId || !clientEmail || !privateKey) {
         throw new Error(
@@ -22,13 +30,19 @@ const getFirebaseAdmin = () => {
     }
 
     // Initialize the default app
-    return initializeApp({
-        credential: cert({
-            projectId,
-            clientEmail,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
-        }),
-    });
+    try {
+        return initializeApp({
+            credential: cert({
+                projectId,
+                clientEmail,
+                privateKey,
+            }),
+        });
+    } catch (error: any) {
+        // Fallback: if race condition initializes app between check and call
+        if (getApps().length > 0) return getApp();
+        throw error;
+    }
 };
 
 // Lazy exports to prevent top-level crashes
@@ -44,8 +58,6 @@ export const getDb = () => {
 
 // Auth export removed or updated if needed (currently not used in the failing path)
 export const getAuth = () => {
-    // If you need auth, import { getAuth } from 'firebase-admin/auth';
-    // For now throwing error to keep minimal changes
     throw new Error("Auth not implemented with modular imports yet");
 };
 
@@ -57,4 +69,3 @@ try {
     // Ignore top-level error to allow module load
 }
 export const db = _db as FirebaseFirestore.Firestore;
-

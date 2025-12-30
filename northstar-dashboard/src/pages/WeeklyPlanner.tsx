@@ -29,6 +29,7 @@ export default function WeeklyPlanner() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [lastError, setLastError] = useState<string | null>(null);
 
     // Week Generation
     const [weekDates, setWeekDates] = useState<Date[]>([]);
@@ -48,8 +49,15 @@ export default function WeeklyPlanner() {
         loadTasks();
 
         // Check for success param from callback
+        // Check for success param from callback
         const params = new URLSearchParams(window.location.search);
-        if (params.get('google_connected') === 'true') {
+
+        if (params.get('error')) {
+            alert("SYNC FAILED: " + params.get('error'));
+            setLastError("Callback Error: " + params.get('error'));
+        }
+
+        if (params.get('google_connected') === 'true' || params.get('sync') === 'true') {
             setIsConnected(true);
             window.history.replaceState({}, '', window.location.pathname);
             // Only load calendar if we just connected
@@ -90,14 +98,22 @@ export default function WeeklyPlanner() {
         const s = start || weekDates[0];
         const e = end || weekDates[6];
 
-        if (!s || !e) return;
+        console.log("Loading Calendar...", { start: s?.toISOString(), end: e?.toISOString() });
+
+        if (!s || !e) {
+            console.warn("Skipping loadCalendar: dates undefined");
+            return;
+        }
 
         try {
             const events = await fetchCalendarEvents(s, e);
+            console.log("Calendar Events Fetched:", events?.length);
             setCalendarEvents(events || []);
             setIsConnected(true); // If fetch succeeds, we are connected
-        } catch (error) {
-            // console.error(error); 
+            setLastError(null);
+        } catch (error: any) {
+            console.error("loadCalendar Failed:", error);
+            setLastError(error.message || "Unknown load error");
             // explicit ignore if 401, but logic is inside service
             setIsConnected(false);
         }
@@ -192,23 +208,60 @@ export default function WeeklyPlanner() {
                         <p className="text-slate-400 mt-2 ml-14">Drag tasks to schedule your Deep Work blocks.</p>
                     </div>
 
-                    <button
-                        onClick={() => {
-                            if (!isConnected) {
-                                window.location.href = '/api/auth/google';
-                            } else {
-                                handleSync();
-                            }
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isConnected
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                            : 'bg-white text-slate-900 hover:bg-slate-200'
-                            }`}
-                    >
-                        {loading ? <RefreshCw className="animate-spin" size={18} /> : isConnected ? <CheckCircle2 size={18} /> : <span>G</span>}
-                        {isConnected ? 'Synced' : 'Connect Google Calendar'}
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={async () => {
+                                try {
+                                    alert("Fetching Auth URL...");
+                                    const res = await fetch('/api/auth/get-url');
+                                    const data = await res.json();
+
+                                    if (!res.ok) {
+                                        console.error("Auth Error:", data);
+                                        alert("Auth Error: " + JSON.stringify(data));
+                                        return;
+                                    }
+
+                                    if (data.url) {
+                                        console.log("Redirecting to:", data.url);
+                                        window.location.href = data.url;
+                                    } else {
+                                        alert("No URL returned from server");
+                                    }
+                                } catch (e: any) {
+                                    console.error("Fetch Error:", e);
+                                    alert("Network/Fetch Error: " + e.message);
+                                }
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20"
+                        >
+                            DEBUG SYNC [v1.02]
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (!isConnected) {
+                                    window.location.href = '/api/auth/google';
+                                } else {
+                                    handleSync();
+                                }
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isConnected
+                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                : 'bg-white text-slate-900 hover:bg-slate-200'
+                                }`}
+                        >
+                            {loading ? <RefreshCw className="animate-spin" size={18} /> : isConnected ? <CheckCircle2 size={18} /> : <span>G</span>}
+                            {isConnected ? 'Synced' : 'Connect Google Calendar'}
+                        </button>
+                    </div>
                 </header>
+
+                {isConnected && calendarEvents.length === 0 && (
+                    <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-200 text-sm flex items-center gap-2">
+                        <AlertCircle size={16} />
+                        <span>No events found. Please click Connect above.</span>
+                    </div>
+                )}
 
                 <div className="flex gap-6 h-[calc(100vh-200px)]">
 
@@ -288,6 +341,36 @@ export default function WeeklyPlanner() {
                     </div>
 
                 </div>
+            </div>
+
+            <div className="fixed bottom-4 right-4 bg-black/90 text-white p-4 rounded-xl text-xs font-mono border border-white/20 z-50 shadow-2xl max-w-sm">
+                <div className="font-bold text-amber-400 mb-2">🔍 DEBUG PANEL</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-2">
+                    <span className="text-slate-400">Connected:</span>
+                    <span className={isConnected ? "text-green-400" : "text-red-400"}>{isConnected ? 'YES' : 'NO'}</span>
+
+                    <span className="text-slate-400">Events Count:</span>
+                    <span className="text-white font-bold">{calendarEvents.length}</span>
+
+                    <span className="text-slate-400">Week Range:</span>
+                    <span className="text-slate-300">
+                        {weekDates[0]?.toLocaleDateString()} - {weekDates[6]?.toLocaleDateString()}
+                    </span>
+                </div>
+                {lastError && (
+                    <div className="border-t border-white/10 pt-2 mt-2">
+                        <div className="text-[10px] text-red-400 font-bold mb-1">LAST ERROR:</div>
+                        <div className="text-[10px] text-red-300 break-words">{lastError}</div>
+                    </div>
+                )}
+                {calendarEvents.length > 0 && (
+                    <div className="border-t border-white/10 pt-2 mt-2">
+                        <div className="text-[10px] text-slate-500 mb-1">First Event Sample:</div>
+                        <pre className="max-h-32 overflow-auto text-[10px] text-green-300 whitespace-pre-wrap break-all">
+                            {JSON.stringify(calendarEvents[0], null, 2)}
+                        </pre>
+                    </div>
+                )}
             </div>
 
             {/* Drag Overlay for smooth visual */}

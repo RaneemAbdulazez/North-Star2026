@@ -39,13 +39,22 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         // --- GET: Fetch Events ---
         if (req.method === 'GET') {
             const { start, end } = req.query;
+            console.log("Fetching calendar for user: default");
 
-            const doc = await db.collection('settings').doc('google_calendar').get();
+            // Updated path to user-specific document (using default for single-tenant)
+            const doc = await db.collection('users').doc('default').collection('integrations').doc('google').get();
+
+            console.log("Calendar API: Checking tokens for user: 'default'");
+
             if (!doc.exists) {
-                return res.status(401).json({ error: "Google Calendar not connected" });
+                console.log("Calendar API: No tokens found for 'default'");
+                // Return empty events instead of 401 to prevent UI crash
+                return res.status(200).json({ events: [] });
             }
 
             const tokens = doc.data();
+            console.log("Calendar API: Tokens found. Access Token present?", !!tokens?.access_token);
+
             oauth2Client.setCredentials(tokens as any);
 
             const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
@@ -71,7 +80,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: "Missing required fields: title, startTime, endTime" });
             }
 
-            const doc = await db.collection('settings').doc('google_calendar').get();
+            const doc = await db.collection('users').doc('default').collection('integrations').doc('google').get();
             if (!doc.exists) {
                 return res.status(401).json({ error: "Google Calendar not connected" });
             }
@@ -105,8 +114,17 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: "Method Not Allowed" });
 
     } catch (error: any) {
-        console.error("Calendar API Error:", error);
+        console.error("Calendar API Error Detailed:", {
+            message: error.message,
+            code: error.code,
+            response: error.response?.data
+        });
+
         if (error.code === 401 || error.message.includes('invalid_grant')) {
+            // For GET requests, return empty array to keep UI stable
+            if (req.method === 'GET') {
+                return res.status(200).json({ events: [] });
+            }
             return res.status(401).json({
                 error: "Authentication failed",
                 authUrl: "/api/auth/google"

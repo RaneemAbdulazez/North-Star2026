@@ -15,42 +15,29 @@ const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) =
 };
 
 async function handler(req: VercelRequest, res: VercelResponse) {
-    console.log("CRITICAL: Auth API Called at " + new Date().toISOString());
-    console.log("Request Method:", req.method);
-
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: "Method Not Allowed" });
-    }
-
     try {
         const oauth2Client = getOAuth2Client();
 
-        console.log("Generating URL...");
-
-        // Scope: Read/Write Access required for Syncing specific tasks
         const scopes = [
             'https://www.googleapis.com/auth/calendar',
             'https://www.googleapis.com/auth/calendar.events'
         ];
 
-        const authorizationUrl = oauth2Client.generateAuthUrl({
-            access_type: 'offline', // Request refresh token
+        const url = oauth2Client.generateAuthUrl({
+            access_type: 'offline',
             scope: scopes,
             include_granted_scopes: true,
-            prompt: 'consent' // Force consent listener to ensure refresh token is returned
+            prompt: 'consent'
         });
 
-        console.log("Atomic Redirect to:", authorizationUrl);
-
-        // ATOMIC REDIRECT
-        res.writeHead(302, { Location: authorizationUrl });
-        res.end();
-        return;
+        // Return URL directly so we can inspect it in the browser
+        return res.status(200).json({ url });
 
     } catch (error: any) {
-        console.error("CRITICAL Auth Route Error:", error);
+        console.error("Auth URL Generation Error:", error);
         return res.status(500).json({
-            error: error.message,
+            error: "Failed to generate URL",
+            details: error.message,
             stack: error.stack
         });
     }
