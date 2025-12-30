@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from '../_lib/firebaseAdmin';
+import { getDb } from '../_lib/firebaseAdmin.js';
 
 // Helper to handle CORS
 const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) => {
