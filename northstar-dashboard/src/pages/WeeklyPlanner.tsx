@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 import { Calendar, RefreshCw, CheckCircle2, GripVertical, AlertCircle, Sparkles } from 'lucide-react';
-import { initGoogleClient, signInToGoogle, fetchCalendarEvents } from '../services/googleCalendar';
+import { signInToGoogle, fetchCalendarEvents, pushTaskToCalendar } from '../services/googleCalendar'; // removed initGoogleClient
 import {
     DndContext,
     DragOverlay,
@@ -36,8 +36,8 @@ export default function WeeklyPlanner() {
     useEffect(() => {
         // Generate current week dates (Mon-Sun)
         const curr = new Date();
-        const first = curr.getDate() - curr.getDay() + 1; // First day is the day of the month - the day of the week
-        const days = [];
+        const first = curr.getDate() - curr.getDay() + 1;
+        const days: Date[] = [];
         for (let i = 0; i < 7; i++) {
             const next = new Date(curr);
             next.setDate(first + i);
@@ -47,17 +47,16 @@ export default function WeeklyPlanner() {
 
         loadTasks();
 
-        // Google Init
-        const checkGoogle = setInterval(() => {
-            if ((window as any).google) {
-                initGoogleClient(() => {
-                    setIsConnected(true);
-                    loadCalendar();
-                });
-                clearInterval(checkGoogle);
-            }
-        }, 500);
-        return () => clearInterval(checkGoogle);
+        // Check for success param from callback
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('google_connected') === 'true') {
+            setIsConnected(true);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+
+        // Try loading calendar if we think we might be connected or just to check
+        // Passing the days explicitly
+        setTimeout(() => loadCalendar(days[0], days[6]), 1000);
     }, []);
 
     const loadTasks = async () => {
@@ -65,7 +64,6 @@ export default function WeeklyPlanner() {
             const res = await fetch(`${API_BASE}/tasks/list`);
             const data = await res.json();
             if (data.tasks) {
-                // Seed mock tasks if empty for demo
                 if (data.tasks.length === 0) {
                     seedMockTasks();
                 } else {
@@ -74,7 +72,7 @@ export default function WeeklyPlanner() {
             }
         } catch (e) {
             console.error("Failed to load tasks", e);
-            seedMockTasks(); // Fallback
+            seedMockTasks();
         }
     };
 
@@ -88,18 +86,21 @@ export default function WeeklyPlanner() {
         setTasks(mocks);
     }
 
-    const loadCalendar = async () => {
-        if (!isConnected) return;
-        // ... existing calendar logic ...
+    const loadCalendar = async (start?: Date, end?: Date) => {
+        // Fallback to state if not passed, but state might be empty initially
+        const s = start || weekDates[0];
+        const e = end || weekDates[6];
+
+        if (!s || !e) return;
+
         try {
-            const start = weekDates[0];
-            const end = weekDates[6];
-            if (start && end) {
-                const data = await fetchCalendarEvents(start.toISOString(), end.toISOString());
-                setCalendarEvents(data.items || []);
-            }
+            const events = await fetchCalendarEvents(s, e);
+            setCalendarEvents(events || []);
+            setIsConnected(true); // If fetch succeeds, we are connected
         } catch (error) {
-            console.error(error);
+            // console.error(error); 
+            // explicit ignore if 401, but logic is inside service
+            setIsConnected(false);
         }
     };
 
@@ -143,6 +144,20 @@ export default function WeeklyPlanner() {
                         date: dropContainerId === 'backlog' ? null : dropContainerId
                     })
                 });
+
+                // Sync to Google Calendar if scheduling to a date
+                if (isConnected && dropContainerId !== 'backlog') {
+                    const task = tasks.find(t => t.id === taskId);
+                    if (task) {
+                        // Construct time. Defaulting to 9:00 AM for simplicity as we don't have time slots yet
+                        const startTime = `${dropContainerId}T09:00:00`;
+                        const endTimeDate = new Date(new Date(startTime).getTime() + task.estimated_minutes * 60000);
+
+                        await pushTaskToCalendar(task.title, startTime, endTimeDate.toISOString());
+                        // Refresh calendar to show the new event
+                        loadCalendar();
+                    }
+                }
             } catch (err) {
                 console.error("Failed to schedule task", err);
             }

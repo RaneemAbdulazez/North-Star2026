@@ -1,68 +1,50 @@
-export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-export const SCOPES = "https://www.googleapis.com/auth/calendar.events";
-
-let tokenClient: any;
-let accessToken: string | null = null;
-
-// Initialize the Google Identity Services Client
-export const initGoogleClient = (callback: (token: string) => void) => {
-    if ((window as any).google) {
-        tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: SCOPES,
-            callback: (tokenResponse: any) => {
-                if (tokenResponse && tokenResponse.access_token) {
-                    accessToken = tokenResponse.access_token;
-                    callback(accessToken!);
-                }
-            },
-        });
-    }
-};
-
 export const signInToGoogle = () => {
-    if (tokenClient) {
-        tokenClient.requestAccessToken();
-    } else {
-        console.error("Google Token Client not initialized");
+    // Redirect to backend auth route which handles the OAuth2 flow
+    window.location.href = '/api/auth/google';
+};
+
+export const fetchCalendarEvents = async (timeMin: Date, timeMax: Date) => {
+    const start = timeMin.toISOString();
+    const end = timeMax.toISOString();
+
+    const response = await fetch(`/api/calendar/events?start=${start}&end=${end}`);
+
+    if (response.status === 401) {
+        throw new Error("unauthorized");
     }
-};
 
-export const signOutFromGoogle = () => {
-    accessToken = null;
-    if ((window as any).google) {
-        (window as any).google.accounts.oauth2.revoke(accessToken, () => {
-            console.log('Consent revoked');
-        });
+    if (!response.ok) {
+        throw new Error("Failed to fetch events");
     }
+
+    const data = await response.json();
+    return data.events;
 };
 
-export const fetchCalendarEvents = async (timeMin: string, timeMax: string) => {
-    if (!accessToken) throw new Error("Not authenticated");
 
-    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`, {
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        }
-    });
 
-    if (!response.ok) throw new Error("Failed to fetch events");
-    return await response.json();
-};
-
-export const createCalendarEvent = async (event: any) => {
-    if (!accessToken) throw new Error("Not authenticated");
-
-    const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
+export const pushTaskToCalendar = async (title: string, startTime: string, endTime: string, description?: string) => {
+    const response = await fetch('/api/calendar/sync-task', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(event)
+        body: JSON.stringify({
+            title,
+            startTime,
+            endTime,
+            description
+        })
     });
 
-    if (!response.ok) throw new Error("Failed to create event");
+    if (response.status === 401) {
+        throw new Error("unauthorized");
+    }
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to sync task");
+    }
+
     return await response.json();
 };
