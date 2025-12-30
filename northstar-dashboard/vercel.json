@@ -1,6 +1,37 @@
 {
-    "cleanUrls": true,
     "rewrites": [
+        {
+            "source": "/api/ping",
+            "destination": "/api/ping.ts"
+        },
+        {
+            "source": "/api/debug",
+            "destination": "/api/debug.ts"
+        },
+        {
+            "source": "/api/health",
+            "destination": "/api/health.ts"
+        },
+        {
+            "source": "/api/sessions/manage",
+            "destination": "/api/sessions/manage.ts"
+        },
+        {
+            "source": "/api/time-logs/daily-stats",
+            "destination": "/api/time-logs/daily-stats.ts"
+        },
+        {
+            "source": "/api/time-logs/create",
+            "destination": "/api/time-logs/create.ts"
+        },
+        {
+            "source": "/api/time-logs/delete",
+            "destination": "/api/time-logs/delete.ts"
+        },
+        {
+            "source": "/api/time-logs/edit",
+            "destination": "/api/time-logs/edit.ts"
+        },
         {
             "source": "/api/(.*)",
             "destination": "/api/$1"
