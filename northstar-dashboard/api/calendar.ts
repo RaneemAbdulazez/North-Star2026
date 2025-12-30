@@ -18,32 +18,37 @@ const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) =
 
 async function handler(req: VercelRequest, res: VercelResponse) {
     const db = getDb();
+    let oauth2Client;
+
+    // 1. Robust Auth Initialization
+    try {
+        oauth2Client = getOAuth2Client();
+    } catch (e: any) {
+        console.error("OAuth Config Error:", e.message);
+        return res.status(400).json({ error: "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET env vars." });
+    }
 
     try {
         // --- GET: Fetch Events ---
         if (req.method === 'GET') {
             const { start, end } = req.query;
 
-            if (!start || !end) {
-                return res.status(400).json({ error: "Missing start or end date query parameters" });
-            }
-
             const doc = await db.collection('settings').doc('google_calendar').get();
-
             if (!doc.exists) {
                 return res.status(401).json({ error: "Google Calendar not connected" });
             }
 
             const tokens = doc.data();
-            const oauth2Client = getOAuth2Client();
             oauth2Client.setCredentials(tokens as any);
 
             const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
+            // 2. Primary Calendar Fetch + Timezone
             const response = await calendar.events.list({
                 calendarId: 'primary',
                 timeMin: start as string,
                 timeMax: end as string,
+                timeZone: 'America/Toronto', // Explicit Timezone
                 singleEvents: true,
                 orderBy: 'startTime',
             });
@@ -54,19 +59,17 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         // --- POST: Sync Task ---
         if (req.method === 'POST') {
             const { title, description, startTime, endTime } = req.body;
-
+            // ... existing checks ...
             if (!title || !startTime || !endTime) {
                 return res.status(400).json({ error: "Missing required fields: title, startTime, endTime" });
             }
 
             const doc = await db.collection('settings').doc('google_calendar').get();
-
             if (!doc.exists) {
                 return res.status(401).json({ error: "Google Calendar not connected" });
             }
 
             const tokens = doc.data();
-            const oauth2Client = getOAuth2Client();
             oauth2Client.setCredentials(tokens as any);
 
             const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
