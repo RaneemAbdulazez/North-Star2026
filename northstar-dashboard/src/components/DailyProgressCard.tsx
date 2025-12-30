@@ -40,7 +40,7 @@ export function DailyProgressCard({ projectsList = [] }: Props) {
 
         async function fetchDailyStats() {
             try {
-                const res = await fetch('/api/time-logs/daily-stats');
+                const res = await fetch('/api/time-logs?action=daily-stats');
 
                 if (!res.ok) {
                     console.warn(`Daily Stats API Error: ${res.status}`);

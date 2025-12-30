@@ -61,7 +61,7 @@ export default function WeeklyPlanner() {
 
     const loadTasks = async () => {
         try {
-            const res = await fetch(`${API_BASE}/tasks/list`);
+            const res = await fetch(`${API_BASE}/tasks`);
             const data = await res.json();
             if (data.tasks) {
                 if (data.tasks.length === 0) {
@@ -136,7 +136,7 @@ export default function WeeklyPlanner() {
 
             // Persist to API
             try {
-                await fetch(`${API_BASE}/tasks/schedule`, {
+                await fetch(`${API_BASE}/tasks`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

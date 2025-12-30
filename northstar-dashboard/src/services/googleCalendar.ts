@@ -7,7 +7,7 @@ export const fetchCalendarEvents = async (timeMin: Date, timeMax: Date) => {
     const start = timeMin.toISOString();
     const end = timeMax.toISOString();
 
-    const response = await fetch(`/api/calendar/events?start=${start}&end=${end}`);
+    const response = await fetch(`/api/calendar?start=${start}&end=${end}`);
 
     if (response.status === 401) {
         throw new Error("unauthorized");
@@ -24,7 +24,7 @@ export const fetchCalendarEvents = async (timeMin: Date, timeMax: Date) => {
 
 
 export const pushTaskToCalendar = async (title: string, startTime: string, endTime: string, description?: string) => {
-    const response = await fetch('/api/calendar/sync-task', {
+    const response = await fetch('/api/calendar', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

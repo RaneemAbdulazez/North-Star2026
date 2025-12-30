@@ -30,10 +30,10 @@ interface PillarStats {
 
 
 // API Helpers
-const API_BASE = "https://north-star2026.vercel.app/api/time-logs";
+const API_BASE = "/api/time-logs";
 
 const createLog = async (data: any) => {
-    const res = await fetch(`${API_BASE}/create`, {
+    const res = await fetch(`${API_BASE}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'work_log', data })
@@ -43,7 +43,7 @@ const createLog = async (data: any) => {
 };
 
 const deleteLog = async (id: string) => {
-    const res = await fetch(`${API_BASE}/delete`, {
+    const res = await fetch(`${API_BASE}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, type: 'work_log' })
@@ -173,7 +173,7 @@ export default function Strategy() {
         };
 
         const handleUpdateLog = async (id: string, newName: string, newDuration: number) => {
-            const res = await fetch(`${API_BASE}/edit`, {
+            const res = await fetch(`${API_BASE}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
