@@ -1,5 +1,14 @@
 {
+    "cleanUrls": true,
     "rewrites": [
+        {
+            "source": "/api/ping",
+            "destination": "/api/ping.ts"
+        },
+        {
+            "source": "/api/sessions/manage",
+            "destination": "/api/sessions/manage.ts"
+        },
         {
             "source": "/api/:path*",
             "destination": "/api/:path*"
