@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, ChevronRight, ChevronLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Calendar, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { initGoogleClient, signInToGoogle, fetchCalendarEvents } from '../services/googleCalendar';
 
 export default function WeeklyPlanner() {
@@ -22,7 +22,7 @@ export default function WeeklyPlanner() {
         // Note: Needs explicit script tag in index.html, usually added via hook or manually
         const checkGoogle = setInterval(() => {
             if ((window as any).google) {
-                initGoogleClient((token) => {
+                initGoogleClient(() => {
                     setIsConnected(true);
                     loadWeekEvents();
                 });
@@ -73,8 +73,8 @@ export default function WeeklyPlanner() {
                 <button
                     onClick={handleSync}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isConnected
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                            : 'bg-white text-slate-900 hover:bg-slate-200'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-white text-slate-900 hover:bg-slate-200'
                         }`}
                 >
                     {loading ? <RefreshCw className="animate-spin" size={18} /> : isConnected ? <CheckCircle2 size={18} /> : <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" className="w-4 h-4" alt="G" />}
@@ -104,7 +104,7 @@ export default function WeeklyPlanner() {
                             ))}
 
                             {/* Render Calendar Events (if any) - Simplified Mapping */}
-                            {calendarEvents.map((evt, idx) => {
+                            {calendarEvents.map((evt) => {
                                 const evtDate = new Date(evt.start.dateTime || evt.start.date);
                                 const dayName = evtDate.toLocaleDateString('en-US', { weekday: 'short' });
                                 if (dayName === day) {
