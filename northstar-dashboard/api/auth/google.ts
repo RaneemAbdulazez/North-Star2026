@@ -37,7 +37,13 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     } catch (error: any) {
         console.error("Auth Error:", error);
-        return res.status(500).json({ error: error.message });
+        // Clean error message for user
+        const msg = error.message || "Unknown Auth Error";
+        return res.status(500).json({
+            error: "Authentication Failed",
+            details: msg,
+            hint: "Check server logs for 'Missing Google OAuth credentials' if persistent."
+        });
     }
 }
 
