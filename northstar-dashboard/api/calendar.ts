@@ -102,7 +102,12 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         if (error.code === 401 || error.message.includes('invalid_grant')) {
             return res.status(401).json({ error: "Authentication failed. Please reconnect Google Calendar." });
         }
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({
+            error: "Calendar Sync Failed",
+            message: error.message,
+            details: error.response?.data || "No external API response",
+            stack: error.stack
+        });
     }
 }
 

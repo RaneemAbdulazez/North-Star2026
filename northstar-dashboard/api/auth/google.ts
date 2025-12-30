@@ -36,13 +36,18 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         return res.redirect(authorizationUrl);
 
     } catch (error: any) {
-        console.error("Auth Error:", error);
+        console.error("Critical Auth Error:", error);
         // Clean error message for user
         const msg = error.message || "Unknown Auth Error";
         return res.status(500).json({
             error: "Authentication Failed",
-            details: msg,
-            hint: "Check server logs for 'Missing Google OAuth credentials' if persistent."
+            message: msg,
+            stack: error.stack,
+            env_check: {
+                has_client_id: !!process.env.GOOGLE_CLIENT_ID,
+                has_client_secret: !!process.env.GOOGLE_CLIENT_SECRET,
+                redirect_uri: process.env.GOOGLE_REDIRECT_URI
+            }
         });
     }
 }

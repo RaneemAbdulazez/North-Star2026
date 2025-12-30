@@ -3,7 +3,7 @@ import { google } from 'googleapis';
 export const getOAuth2Client = () => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5173/api/auth/google/callback';
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'https://north-star2026.vercel.app/api/auth/google/callback';
 
     if (!clientId) console.error("Missing GOOGLE_CLIENT_ID");
     if (!clientSecret) console.error("Missing GOOGLE_CLIENT_SECRET");

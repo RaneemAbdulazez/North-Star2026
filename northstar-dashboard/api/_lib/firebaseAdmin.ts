@@ -26,7 +26,7 @@ const getFirebaseAdmin = () => {
         credential: cert({
             projectId,
             clientEmail,
-            privateKey: privateKey.replace(/\\n/g, '\n'),
+            privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
         }),
     });
 };
