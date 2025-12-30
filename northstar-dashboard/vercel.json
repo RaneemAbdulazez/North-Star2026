@@ -1,21 +1,6 @@
 {
+    "cleanUrls": true,
     "rewrites": [
-        {
-            "source": "/api/ping",
-            "destination": "/api/ping.ts"
-        },
-        {
-            "source": "/api/sessions/manage",
-            "destination": "/api/sessions/manage.ts"
-        },
-        {
-            "source": "/api/tasks/list",
-            "destination": "/api/tasks/list.ts"
-        },
-        {
-            "source": "/api/tasks/schedule",
-            "destination": "/api/tasks/schedule.ts"
-        },
         {
             "source": "/api/(.*)",
             "destination": "/api/$1"
@@ -24,11 +9,5 @@
             "source": "/(.*)",
             "destination": "/index.html"
         }
-    ],
-    "functions": {
-        "api/**/*.ts": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
-    }
+    ]
 }
