@@ -159,12 +159,22 @@ export default function Analytics() {
 
     if (loading) return <div className="p-20 text-center"><div className="animate-spin w-8 h-8 border-2 border-blue-500 rounded-full mx-auto"></div></div>;
 
-    // Logic Fixes
+    // Logic Fixes (Strict per User Request)
     const weeklySpent = weeklyMomentum.reduce((acc, d) => acc + d.hours, 0);
     const WEEKLY_TARGET = 20;
+
     const remaining = Math.max(0, QUARTER_BUDGET - totalSpent);
-    const progressPct = (remaining / QUARTER_BUDGET);
-    const dashOffset = 251.2 * (1 - progressPct);
+    // Percentage spent (capped at 100%)
+    const spentPct = Math.min(1, totalSpent / QUARTER_BUDGET);
+
+    // Gauge Visualization:
+    // If we want to show "Remaining", full bar = 100% remaining. 
+    // If we want to show "Spent" (filling up), full bar = 100% spent.
+    // User asked "percentage... calculated as (TotalSpentHours / 240)".
+    // Let's make the gauge 'Fill Up' as we spend. 
+    // Empty (0 spent) -> offset 251.2
+    // Full (240 spent) -> offset 0
+    const dashOffset = 251.2 * (1 - spentPct);
 
     let gaugeColor = "#3b82f6"; // Blue
     if (remaining < 20) gaugeColor = "#f59e0b"; // Orange
@@ -220,8 +230,8 @@ export default function Analytics() {
                             />
                         </svg>
                         <div className="absolute bottom-0 text-center pb-2">
-                            <div className="text-4xl font-bold text-white">{Math.round(progressPct * 100)}%</div>
-                            <div className="text-xs text-slate-500 uppercase tracking-widest">Available</div>
+                            <div className="text-4xl font-bold text-white">{Math.round(spentPct * 100)}%</div>
+                            <div className="text-xs text-slate-500 uppercase tracking-widest">Used</div>
                         </div>
                     </div>
                 </div>

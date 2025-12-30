@@ -53,10 +53,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             await batch.commit();
 
+            // Ensure startTime is a number (UTC timestamp)
+            const numericStartTime = new Date(startTime).getTime();
+
             // Create new
             const newSession = {
                 status: 'active',
-                start_time: startTime,
+                start_time: !isNaN(numericStartTime) ? numericStartTime : Date.now(),
                 project_id: itemType === 'project' ? itemId : null,
                 habit_id: itemType === 'habit' ? itemId : null,
                 task_name: itemName || "Unknown Task",
