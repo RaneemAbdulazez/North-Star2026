@@ -25,9 +25,21 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        console.log("CRITICAL: Auth Callback Hit");
-
         const oauth2Client = getOAuth2Client();
+
+        // TRACE: Log that callback was hit
+        try {
+            const db = getDb();
+            await db.collection('_debug').doc('callback_hit_latest').set({
+                timestamp: new Date().toISOString(),
+                query: req.query || {},
+                headers_host: req.headers['host'] || 'unknown'
+            });
+            console.log("TRACE: Callback hit logged to DB");
+        } catch (traceErr) {
+            console.error("TRACE FAILED:", traceErr);
+        }
+
         console.log("Exchanging code for tokens...");
         const { tokens } = await oauth2Client.getToken(code);
         console.log("Tokens received (Masked):", !!tokens.access_token);

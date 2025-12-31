@@ -69,6 +69,8 @@ async function handler(req: VercelRequest, res: VercelResponse) {
                 orderBy: 'startTime',
             });
 
+            console.log("Events found:", response.data.items?.length || 0);
+
             return res.status(200).json({ events: response.data.items });
         }
 

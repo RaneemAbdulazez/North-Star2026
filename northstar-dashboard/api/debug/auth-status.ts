@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from '../../_lib/firebaseAdmin.js';
+// import { getDb } from '../../_lib/firebaseAdmin.js'; // Commented out to prevent module crash
 
 const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) => {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -16,12 +16,30 @@ const allowCors = (fn: any) => async (req: VercelRequest, res: VercelResponse) =
 
 async function handler(req: VercelRequest, res: VercelResponse) {
     try {
-        const db = getDb();
+        // 1. Dynamic Import (Safe Mode)
+        const { getApps, initializeApp, cert } = await import('firebase-admin/app');
+        const { getFirestore } = await import('firebase-admin/firestore');
 
-        // 1. Check Tokens
+        // 2. Initialize App if needed
+        if (getApps().length === 0) {
+            const rawKey = process.env.FIREBASE_PRIVATE_KEY || "";
+            const privateKey = rawKey.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+
+            initializeApp({
+                credential: cert({
+                    projectId: process.env.FIREBASE_PROJECT_ID,
+                    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                    privateKey,
+                }),
+            });
+        }
+
+        const db = getFirestore();
+
+        // 3. Check Tokens
         const tokenDoc = await db.collection('users').doc('default').collection('integrations').doc('google').get();
 
-        // 2. Check Last Error
+        // 4. Check Last Error
         const errorDoc = await db.collection('_debug').doc('auth_error').get();
 
         const html = `

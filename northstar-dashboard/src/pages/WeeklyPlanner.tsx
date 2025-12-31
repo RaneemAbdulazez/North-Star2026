@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-
-import { Calendar, RefreshCw, CheckCircle2, GripVertical, AlertCircle, Sparkles } from 'lucide-react';
-import { signInToGoogle, fetchCalendarEvents, pushTaskToCalendar } from '../services/googleCalendar'; // removed initGoogleClient
+import { RefreshCw, CheckCircle2, Target, BarChart3 } from 'lucide-react';
+import { fetchCalendarEvents, pushTaskToCalendar } from '../services/googleCalendar';
 import {
     DndContext,
     DragOverlay,
@@ -12,26 +11,23 @@ import {
     rectIntersection
 } from '@dnd-kit/core';
 
-interface Task {
-    id: string;
-    title: string;
-    estimated_minutes: number;
-    scheduled_date: string | null; // ISO Date String (YYYY-MM-DD)
-    status: 'todo' | 'done';
-}
+import GoalSidebar from '../components/GoalSidebar';
+import type { Project, Goal, Task } from '../types';
 
-// Ensure API URL is absolute or relative correctly
 const API_BASE = "/api";
 
 export default function WeeklyPlanner() {
     const [isConnected, setIsConnected] = useState(false);
-    const [loading] = useState(false);
+
+    // Data State
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [goals, setGoals] = useState<Goal[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
-    const [activeId, setActiveId] = useState<string | null>(null);
-    const [lastError, setLastError] = useState<string | null>(null);
 
-    // Week Generation
+    // UI State
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const [expandedStats, setExpandedStats] = useState(true);
     const [weekDates, setWeekDates] = useState<Date[]>([]);
 
     useEffect(() => {
@@ -46,85 +42,102 @@ export default function WeeklyPlanner() {
         }
         setWeekDates(days);
 
-        loadTasks();
+        loadData();
 
-        // Check for success param from callback
         // Check for success param from callback
         const params = new URLSearchParams(window.location.search);
-
         if (params.get('error')) {
             alert("SYNC FAILED: " + params.get('error'));
-            setLastError("Callback Error: " + params.get('error'));
         }
 
         if (params.get('google_connected') === 'true' || params.get('sync') === 'true') {
             setIsConnected(true);
             window.history.replaceState({}, '', window.location.pathname);
-            // Only load calendar if we just connected
+            setTimeout(() => loadCalendar(days[0], days[6]), 500);
+        } else {
             setTimeout(() => loadCalendar(days[0], days[6]), 500);
         }
-        // DO NOT auto-load otherwise to prevent 401 loop
     }, []);
 
-    const loadTasks = async () => {
+    const loadData = async () => {
         try {
-            const res = await fetch(`${API_BASE}/tasks`);
-            const data = await res.json();
-            if (data.tasks) {
-                if (data.tasks.length === 0) {
-                    seedMockTasks();
-                } else {
-                    setTasks(data.tasks);
-                }
-            }
+            const [projRes, goalRes, taskRes] = await Promise.all([
+                fetch(`${API_BASE}/projects`),
+                fetch(`${API_BASE}/goals`),
+                fetch(`${API_BASE}/tasks`)
+            ]);
+
+            const pData = await projRes.json();
+            const gData = await goalRes.json();
+            const tData = await taskRes.json();
+
+            setProjects(pData?.projects || []);
+            setGoals(gData?.goals || []);
+            setTasks(tData?.tasks || []);
         } catch (e) {
-            console.error("Failed to load tasks", e);
-            seedMockTasks();
+            console.error("Failed to load data", e);
         }
     };
 
-    const seedMockTasks = () => {
-        const mocks: Task[] = [
-            { id: 't1', title: 'Draft Q1 Strategy', estimated_minutes: 120, scheduled_date: null, status: 'todo' },
-            { id: 't2', title: 'Review PRs', estimated_minutes: 45, scheduled_date: null, status: 'todo' },
-            { id: 't3', title: 'Update Landing Page', estimated_minutes: 90, scheduled_date: null, status: 'todo' },
-            { id: 't4', title: 'Client Call Prep', estimated_minutes: 30, scheduled_date: null, status: 'todo' }
-        ];
-        setTasks(mocks);
-    }
-
     const loadCalendar = async (start?: Date, end?: Date) => {
-        // Fallback to state if not passed, but state might be empty initially
         const s = start || weekDates[0];
         const e = end || weekDates[6];
 
-        console.log("Loading Calendar...", { start: s?.toISOString(), end: e?.toISOString() });
-
-        if (!s || !e) {
-            console.warn("Skipping loadCalendar: dates undefined");
-            return;
-        }
+        if (!s || !e) return;
 
         try {
             const events = await fetchCalendarEvents(s, e);
-            console.log("Calendar Events Fetched:", events?.length);
             setCalendarEvents(events || []);
-            setIsConnected(true); // If fetch succeeds, we are connected
-            setLastError(null);
+            setIsConnected(true);
         } catch (error: any) {
             console.error("loadCalendar Failed:", error);
-            setLastError(error.message || "Unknown load error");
-            // explicit ignore if 401, but logic is inside service
             setIsConnected(false);
         }
     };
 
-    const handleSync = () => {
-        if (!isConnected) signInToGoogle();
-        else loadCalendar();
+    // --- Actions ---
+    const handleAddGoal = async (projectId: string) => {
+        const title = prompt("Enter Weekly Goal Title:");
+        if (!title) return;
+
+        const newGoal = {
+            title,
+            projectId,
+            weekId: 'current-week',
+            estimatedInfo: 5
+        };
+
+        const res = await fetch(`${API_BASE}/goals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newGoal)
+        });
+        const saved = await res.json();
+        setGoals(prev => [saved, ...prev]);
     };
 
-    // DND Handlers
+    const handleAddTask = async (goalId: string, _projectId: string) => {
+        const title = prompt("Enter Task Title:");
+        if (!title) return;
+
+        const newTask = {
+            title,
+            estimated_minutes: 60,
+            goalId
+        };
+
+        const res = await fetch(`${API_BASE}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newTask)
+        });
+        const saved = await res.json();
+        setTasks(prev => [saved, ...prev]);
+    };
+
+
+
+    // --- DND Logic ---
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
     };
@@ -137,262 +150,291 @@ export default function WeeklyPlanner() {
             const taskId = active.id as string;
             const dropContainerId = over.id as string;
 
-            // Update Local State
-            const updatedTasks = tasks.map(t => {
+            const isDateColumn = weekDates.some(d => d.toISOString().split('T')[0] === dropContainerId);
+            if (!isDateColumn) return;
+
+            // --- TIME CALCULATION LOGIC ---
+            let scheduledTime = "09:00:00";
+
+            if (active.rect.current.translated && over.rect) {
+                const relativeY = active.rect.current.translated.top - over.rect.top;
+
+                if (relativeY > 80) {
+                    const pixelsIntoGrid = relativeY - 80;
+                    const hoursIntoGrid = pixelsIntoGrid / 60;
+                    const hour = Math.floor(6 + hoursIntoGrid);
+                    const minute = Math.floor((hoursIntoGrid % 1) * 60);
+                    const clampedHour = Math.max(6, Math.min(hour, 23));
+                    const roundedMin = Math.round(minute / 15) * 15;
+
+                    scheduledTime = `${clampedHour.toString().padStart(2, '0')}:${roundedMin.toString().padStart(2, '0')}:00`;
+                }
+            }
+
+            // --- DURATION PROMPT (Option A) ---
+            const taskStart = tasks.find(t => t.id === taskId);
+            const defaultDuration = taskStart?.estimated_minutes || 60;
+            const durationInput = prompt(`Set Duration for "${taskStart?.title}" (min):`, String(defaultDuration));
+
+            if (durationInput === null) return; // User cancelled drop
+            const newDuration = parseInt(durationInput, 10) || 60;
+
+            // Update State
+            setTasks(prev => prev.map(t => {
                 if (t.id === taskId) {
-                    return {
-                        ...t,
-                        scheduled_date: dropContainerId === 'backlog' ? null : dropContainerId
-                    };
+                    return { ...t, scheduled_date: dropContainerId, estimated_minutes: newDuration };
                 }
                 return t;
-            });
-            setTasks(updatedTasks);
+            }));
 
-            // Persist to API
+            // Persist
             try {
-                await fetch(`${API_BASE}/tasks`, {
-                    method: 'PATCH',
+                const task = tasks.find(t => t.id === taskId);
+                const goal = goals.find(g => g.id === task?.goalId);
+                // goal?.projectId might be string, ensure we are safe
+                const projectId = goal?.projectId;
+
+                const response = await fetch(`${API_BASE}/tasks`, {
+                    method: 'PATCH', // backend will sync time_logs
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         taskId,
-                        date: dropContainerId === 'backlog' ? null : dropContainerId
+                        goalId: task?.goalId,
+                        projectId,
+                        title: task?.title,
+                        date: dropContainerId,
+                        time: scheduledTime,
+                        estimated_minutes: newDuration
                     })
                 });
 
-                // Sync to Google Calendar if scheduling to a date
-                if (isConnected && dropContainerId !== 'backlog') {
-                    const task = tasks.find(t => t.id === taskId);
-                    if (task) {
-                        // Construct time. Defaulting to 9:00 AM for simplicity as we don't have time slots yet
-                        const startTime = `${dropContainerId}T09:00:00`;
-                        const endTimeDate = new Date(new Date(startTime).getTime() + task.estimated_minutes * 60000);
+                if (!response.ok) throw new Error("API update failed");
 
-                        await pushTaskToCalendar(task.title, startTime, endTimeDate.toISOString());
-                        // Refresh calendar to show the new event
-                        loadCalendar();
-                    }
+                if (isConnected && task) {
+                    const startTime = `${dropContainerId}T${scheduledTime}`;
+                    const duration = newDuration;
+                    const endTimeDate = new Date(new Date(startTime).getTime() + duration * 60000);
+
+                    await pushTaskToCalendar(task.title, startTime, endTimeDate.toISOString());
+                    loadCalendar();
                 }
+
             } catch (err: any) {
-                if (err.message === "unauthorized") {
-                    window.location.href = '/api/auth/google';
-                    return;
-                }
                 console.error("Failed to schedule task", err);
             }
         }
     };
 
-    // Helpers
-    const getTasksForDate = (dateStr: string) => tasks.filter(t => t.scheduled_date === dateStr);
-    const getBacklogTasks = () => tasks.filter(t => !t.scheduled_date);
-    const getDailyTotalHours = (dateStr: string) => {
-        const dailyTasks = getTasksForDate(dateStr);
-        const minutes = dailyTasks.reduce((acc, t) => acc + (t.estimated_minutes || 0), 0);
-        return (minutes / 60).toFixed(1);
+    const getTasksForDate = (dateStr: string) => tasks?.filter(t => t.scheduled_date === dateStr) || [];
+
+    // Timeline Constants
+    const START_HOUR = 6;
+    const END_HOUR = 24;
+    const HOUR_HEIGHT = 60;
+    const TOTAL_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
+
+    const getEventStyle = (startStr: string, endStr: string) => {
+        const start = new Date(startStr);
+        const end = new Date(endStr);
+        let startHour = start.getHours() + (start.getMinutes() / 60);
+        let endHour = end.getHours() + (end.getMinutes() / 60);
+        if (startHour < START_HOUR) startHour = START_HOUR;
+        if (endHour > END_HOUR) endHour = END_HOUR;
+        const top = (startHour - START_HOUR) * HOUR_HEIGHT;
+        const height = (endHour - startHour) * HOUR_HEIGHT;
+        return { top: `${top}px`, height: `${Math.max(height, 20)}px` };
     };
 
-    const activeTask = tasks.find(t => t.id === activeId);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayTasks = getTasksForDate(todayStr);
+    const todayMinutes = todayTasks.reduce((acc, t) => acc + (Number(t.estimated_minutes) || 0), 0);
+    const todayHours = todayMinutes / 60;
+    const dailyProgress = isNaN(todayHours) ? 0 : Math.min((todayHours / 5.9) * 100, 100);
+
+    const activeTask = tasks?.find(t => t.id === activeId);
+
+    // Safeguard for weekDates being empty initially
+    if (!weekDates.length) return <div className="p-10 text-slate-400">Loading Planner...</div>;
 
     return (
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={rectIntersection}>
-            <div className="max-w-[1400px] mx-auto pb-20 p-6">
-                <header className="mb-8 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                            <div className="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
-                                <Calendar size={24} className="text-indigo-400" />
+            <div className="max-w-full mx-auto h-screen flex flex-col bg-[#0f172a] text-slate-200 overflow-hidden">
+
+                <header className="flex-shrink-0 bg-surface border-b border-white/5 px-6 py-3 flex items-center justify-between z-20 shadow-sm relative">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                <Target size={20} className="text-blue-400" />
                             </div>
-                            Weekly Planner
-                        </h1>
-                        <p className="text-slate-400 mt-2 ml-14">Drag tasks to schedule your Deep Work blocks.</p>
+                            <div>
+                                <h1 className="text-lg font-bold text-white leading-none">Weekly Planner</h1>
+                                <p className="text-[10px] text-slate-500 font-mono mt-1">Q1 FY2026 • WEEK 01 • v2.1</p>
+                            </div>
+                        </div>
+
+                        <div className="hidden lg:flex items-center gap-4 px-4 py-1.5 bg-slate-900/50 rounded-lg border border-white/5">
+                            <div className="text-xs font-medium text-slate-400">TODAY'S ANCHOR</div>
+                            <div className="w-32 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full transition-all duration-500 ${todayHours >= 5.9 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${dailyProgress}%` }}
+                                />
+                            </div>
+                            <div className="text-xs font-mono text-white">
+                                <span className={todayHours >= 5.9 ? "text-emerald-400" : "text-blue-400"}>{todayHours.toFixed(1)}h</span>
+                                <span className="text-slate-600"> / 5.9h</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-3">
                         <button
-                            onClick={async () => {
-                                try {
-                                    alert("Fetching Auth URL...");
-                                    const res = await fetch('/api/auth/get-url');
-                                    const data = await res.json();
-
-                                    if (!res.ok) {
-                                        console.error("Auth Error:", data);
-                                        alert("Auth Error: " + JSON.stringify(data));
-                                        return;
-                                    }
-
-                                    if (data.url) {
-                                        console.log("Redirecting to:", data.url);
-                                        window.location.href = data.url;
-                                    } else {
-                                        alert("No URL returned from server");
-                                    }
-                                } catch (e: any) {
-                                    console.error("Fetch Error:", e);
-                                    alert("Network/Fetch Error: " + e.message);
-                                }
-                            }}
-                            className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20"
+                            onClick={() => setExpandedStats(!expandedStats)}
+                            className="p-2 text-slate-400 hover:text-white transition-colors"
                         >
-                            DEBUG SYNC [v1.02]
+                            <BarChart3 size={18} />
                         </button>
+
+                        <div className="h-6 w-px bg-white/10 mx-1" />
+
                         <button
-                            onClick={() => {
-                                if (!isConnected) {
-                                    window.location.href = '/api/auth/google';
-                                } else {
-                                    handleSync();
-                                }
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${isConnected
-                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                : 'bg-white text-slate-900 hover:bg-slate-200'
-                                }`}
+                            onClick={() => loadCalendar()}
+                            className="px-3 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors border border-white/10"
                         >
-                            {loading ? <RefreshCw className="animate-spin" size={18} /> : isConnected ? <CheckCircle2 size={18} /> : <span>G</span>}
-                            {isConnected ? 'Synced' : 'Connect Google Calendar'}
+                            <RefreshCw size={16} />
                         </button>
+
+                        {!isConnected ? (
+                            <a
+                                href="/api/auth/google"
+                                className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors shadow-lg shadow-blue-900/20 inline-block decoration-none"
+                            >
+                                CONNECT GOOGLE
+                            </a>
+                        ) : (
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 text-xs font-bold">
+                                <CheckCircle2 size={14} />
+                                <span>SYNCED</span>
+                            </div>
+                        )}
                     </div>
                 </header>
 
-                {isConnected && calendarEvents.length === 0 && (
-                    <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-200 text-sm flex items-center gap-2">
-                        <AlertCircle size={16} />
-                        <span>No events found. Please click Connect above.</span>
-                    </div>
-                )}
+                <div className="flex flex-1 overflow-hidden relative">
 
-                <div className="flex gap-6 h-[calc(100vh-200px)]">
-
-                    {/* SIDEBAR: Backlog */}
-                    <div className="w-80 flex-shrink-0 flex flex-col bg-surface border border-white/5 rounded-2xl overflow-hidden">
-                        <div className="p-4 border-b border-white/5 bg-slate-900/50">
-                            <h2 className="font-bold text-white flex items-center gap-2">
-                                <Sparkles size={16} className="text-amber-400" />
-                                Task Backlog
-                            </h2>
-                            <p className="text-xs text-slate-500 mt-1">{getBacklogTasks().length} tasks unscheduled</p>
+                    {projects.length === 0 ? (
+                        <div className="w-80 border-r border-white/5 bg-surface text-slate-500 p-10 flex flex-col items-center justify-center text-xs gap-4">
+                            <p>No Projects Found in DB.</p>
+                            <p className="text-[10px]">Please ensure you have created projects in the "Projects" page.</p>
                         </div>
-                        <DroppableColumn id="backlog" className="flex-1 p-3 overflow-y-auto space-y-3 bg-[#020617]/50">
-                            {getBacklogTasks().map(task => (
-                                <TaskCard key={task.id} task={task} />
-                            ))}
-                            {getBacklogTasks().length === 0 && (
-                                <div className="text-center py-10 text-slate-600 text-sm">No tasks in backlog</div>
-                            )}
-                        </DroppableColumn>
-                    </div>
+                    ) : (
+                        <GoalSidebar
+                            projects={projects}
+                            goals={goals}
+                            tasks={tasks}
+                            onAddGoal={handleAddGoal}
+                            onAddTask={handleAddTask}
+                        />
+                    )}
 
-                    {/* MAIN: Weekly Grid */}
-                    <div className="flex-1 grid grid-cols-7 gap-3 min-w-0">
-                        {weekDates.map(dateObj => {
-                            const dateStr = dateObj.toISOString().split('T')[0];
-                            const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                            const dayNum = dateObj.getDate();
-                            const totalHours = Number(getDailyTotalHours(dateStr));
-
-                            // Visual Polish Logic
-                            let statusColor = "text-slate-500";
-                            if (totalHours > 5.9) statusColor = "text-red-400 font-bold";
-                            else if (totalHours >= 4) statusColor = "text-emerald-400 font-bold";
-
-                            return (
-                                <div key={dateStr} className="flex flex-col h-full min-w-0">
-                                    <div className="text-center mb-2">
-                                        <div className="text-xs text-slate-500 uppercase font-bold tracking-widest">{dayName}</div>
-                                        <div className={`text-xl font-bold ${activeId ? 'text-blue-400' : 'text-white'}`}>{dayNum}</div>
+                    <div className="flex-1 overflow-x-auto overflow-y-auto bg-[#0b101e] p-6 custom-scrollbar relative">
+                        <div className="grid grid-cols-7 gap-x-2 min-w-[1000px] mb-20">
+                            {weekDates.map(dateObj => {
+                                const isToday = dateObj.toDateString() === new Date().toDateString();
+                                return (
+                                    <div key={dateObj.toISOString()} className="text-center pb-4 sticky top-0 bg-[#0b101e] z-20 pt-2 border-b border-white/5">
+                                        <div className={`text-xs uppercase font-bold tracking-widest mb-1 ${isToday ? 'text-blue-400' : 'text-slate-500'}`}>
+                                            {dateObj.toLocaleDateString('en-US', { weekday: 'short' })}
+                                        </div>
+                                        <div className={`text-2xl font-bold ${isToday ? 'text-white' : 'text-slate-400'}`}>
+                                            {dateObj.getDate()}
+                                        </div>
                                     </div>
+                                );
+                            })}
+
+                            {weekDates.map(dateObj => {
+                                const dateStr = dateObj.toISOString().split('T')[0];
+                                const dailyTasks = getTasksForDate(dateStr);
+                                const dailyMinutes = dailyTasks.reduce((acc, t) => acc + (Number(t.estimated_minutes) || 0), 0);
+                                const hours = (dailyMinutes / 60).toFixed(1);
+
+                                return (
                                     <DroppableColumn
+                                        key={dateStr}
                                         id={dateStr}
-                                        className={`flex-1 rounded-xl border border-white/5 p-2 space-y-2 relative transition-colors ${totalHours > 5.9 ? 'bg-red-500/5 border-red-500/20' : 'bg-surface/30'
+                                        className={`min-h-[600px] rounded-xl relative border-r border-white/5 transition-colors ${Number(hours) > 5.9 ? 'bg-red-500/5' : ''
                                             }`}
                                     >
-                                        {/* Calendar Events Layer */}
-                                        {calendarEvents
-                                            .filter(evt => {
-                                                const evtDate = new Date(evt.start.dateTime || evt.start.date);
-                                                return evtDate.toISOString().split('T')[0] === dateStr;
-                                            })
-                                            .map(evt => (
-                                                <div key={evt.id} className="p-1.5 px-2 bg-slate-800/60 rounded border border-white/5 mb-1 opacity-70">
-                                                    <div className="text-[10px] text-slate-400 truncate font-mono">
-                                                        {new Date(evt.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </div>
-                                                    <div className="text-[11px] text-slate-300 truncate">{evt.summary}</div>
+                                        <div className="p-2 space-y-2 min-h-[60px] mb-2">
+                                            {dailyTasks.map(task => {
+                                                const goal = goals?.find(g => g.id === task.goalId);
+                                                const project = projects?.find(p => p.id === goal?.projectId);
+                                                return (
+                                                    <TaskCard
+                                                        key={task.id}
+                                                        task={task}
+                                                        color={project?.color}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="relative border-t border-white/5" style={{ height: TOTAL_HEIGHT }}>
+                                            {Array.from({ length: END_HOUR - START_HOUR }).map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="absolute w-full border-t border-white/5 text-[9px] text-slate-700 pl-1"
+                                                    style={{ top: i * HOUR_HEIGHT }}
+                                                >
+                                                    {i + START_HOUR}:00
                                                 </div>
-                                            ))
-                                        }
+                                            ))}
 
-                                        {/* NorthStar Tasks */}
-                                        {getTasksForDate(dateStr).map(task => (
-                                            <TaskCard key={task.id} task={task} />
-                                        ))}
+                                            {calendarEvents
+                                                .filter(evt => {
+                                                    if (!evt.start.dateTime) return false;
+                                                    const evtDate = new Date(evt.start.dateTime);
+                                                    return evtDate.toISOString().split('T')[0] === dateStr;
+                                                })
+                                                .map(evt => {
+                                                    const style = getEventStyle(evt.start.dateTime, evt.end.dateTime);
+                                                    return (
+                                                        <div
+                                                            key={evt.id}
+                                                            className="absolute left-1 right-1 rounded border border-blue-500/30 bg-blue-600/10 p-1 overflow-hidden hover:bg-blue-600/20 transition-colors z-10"
+                                                            style={style}
+                                                            title={evt.summary}
+                                                        >
+                                                            <div className="text-[10px] font-bold text-blue-200 truncate">{evt.summary}</div>
+                                                        </div>
+                                                    );
+                                                })
+                                            }
+                                        </div>
+
+                                        <div className="mt-2 text-center text-[10px] text-slate-600 font-mono">
+                                            {hours}h
+                                        </div>
                                     </DroppableColumn>
-
-                                    {/* Footer: Totals */}
-                                    <div className={`mt-2 text-center text-xs font-mono transition-colors ${statusColor}`}>
-                                        {totalHours > 0 ? `${totalHours}h` : '-'}
-                                        {totalHours > 5.9 && <AlertCircle size={10} className="inline ml-1" />}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
 
                 </div>
             </div>
 
-            <div className="fixed bottom-4 right-4 bg-black/90 text-white p-4 rounded-xl text-xs font-mono border border-white/20 z-50 shadow-2xl max-w-sm">
-                <div className="font-bold text-amber-400 mb-2">🔍 DEBUG PANEL</div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-2">
-                    <span className="text-slate-400">Connected:</span>
-                    <span className={isConnected ? "text-green-400" : "text-red-400"}>{isConnected ? 'YES' : 'NO'}</span>
-
-                    <span className="text-slate-400">Events Count:</span>
-                    <span className="text-white font-bold">{calendarEvents.length}</span>
-
-                    <span className="text-slate-400">Week Range:</span>
-                    <span className="text-slate-300">
-                        {weekDates[0]?.toLocaleDateString()} - {weekDates[6]?.toLocaleDateString()}
-                    </span>
-                </div>
-                {lastError && (
-                    <div className="border-t border-white/10 pt-2 mt-2">
-                        <div className="text-[10px] text-red-400 font-bold mb-1">LAST ERROR:</div>
-                        <div className="text-[10px] text-red-300 break-words">{lastError}</div>
-                    </div>
-                )}
-                {calendarEvents.length > 0 && (
-                    <div className="border-t border-white/10 pt-2 mt-2">
-                        <div className="text-[10px] text-slate-500 mb-1">First Event Sample:</div>
-                        <pre className="max-h-32 overflow-auto text-[10px] text-green-300 whitespace-pre-wrap break-all">
-                            {JSON.stringify(calendarEvents[0], null, 2)}
-                        </pre>
-                    </div>
-                )}
-            </div>
-
-            {/* Drag Overlay for smooth visual */}
             <DragOverlay>
                 {activeId && activeTask ? (
                     <div className="p-3 bg-blue-600 rounded-lg shadow-2xl border border-blue-400/50 w-48 rotate-3 cursor-grabbing opacity-90 z-50">
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="font-medium text-sm text-white line-clamp-2">{activeTask.title}</div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                            <div className="text-[10px] font-mono bg-black/20 px-1.5 py-0.5 rounded text-blue-200">
-                                {activeTask.estimated_minutes}m
-                            </div>
-                        </div>
+                        <div className="font-medium text-sm text-white">{activeTask.title}</div>
                     </div>
                 ) : null}
             </DragOverlay>
         </DndContext>
     );
 }
-
-// Sub-components
 
 function DroppableColumn({ id, children, className }: { id: string, children: React.ReactNode, className?: string }) {
     const { setNodeRef, isOver } = useDroppable({ id });
@@ -403,16 +445,11 @@ function DroppableColumn({ id, children, className }: { id: string, children: Re
     );
 }
 
-function TaskCard({ task }: { task: Task }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: task.id,
-    });
-
-    // Convert transform to style but we generally use Overlay for cleaner look,
-    // so we just hide the original while dragging or lower opacity
+function TaskCard({ task, color }: { task: Task, color?: string }) {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
     const style = transform ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-        opacity: isDragging ? 0 : 1, // Hide original when dragging (using overlay)
+        opacity: isDragging ? 0 : 1,
     } : undefined;
 
     return (
@@ -421,17 +458,13 @@ function TaskCard({ task }: { task: Task }) {
             style={style}
             {...listeners}
             {...attributes}
-            className={`group p-3 bg-surface rounded-lg border border-white/5 hover:border-blue-500/30 cursor-grab active:cursor-grabbing transition-all hover:shadow-lg hover:-translate-y-0.5 ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+            className={`group p-2 rounded border border-white/5 bg-slate-800/80 hover:bg-slate-700/80 cursor-grab active:cursor-grabbing hover:shadow-lg ${isDragging ? 'opacity-0' : 'opacity-100'}`}
         >
-            <div className="flex items-start gap-2">
-                <GripVertical size={14} className="text-slate-600 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div>
-                    <div className="text-sm text-slate-200 font-medium leading-tight">{task.title}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                        <div className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-white/5 font-mono">
-                            {task.estimated_minutes}m
-                        </div>
-                    </div>
+            <div className="flex items-center gap-2">
+                <div className="w-1 h-6 rounded-full" style={{ backgroundColor: color || '#64748b' }} />
+                <div className="min-w-0">
+                    <div className="text-xs text-slate-200 font-medium truncate">{task.title}</div>
+                    <div className="text-[9px] text-slate-500">{task.estimated_minutes}m</div>
                 </div>
             </div>
         </div>

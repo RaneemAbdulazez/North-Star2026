@@ -31,7 +31,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         // Return URL directly so we can inspect it in the browser
-        return res.status(200).json({ url });
+        return res.status(200).json({
+            url,
+            debug_redirect_uri: process.env.GOOGLE_REDIRECT_URI || "MISSING (Using default)"
+        });
 
     } catch (error: any) {
         console.error("Auth URL Generation Error:", error);
