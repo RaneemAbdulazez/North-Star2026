@@ -51,7 +51,7 @@ export default function Analytics() {
         english: 0
     });
 
-    const QUARTER_BUDGET = 240;
+    const QUARTER_BUDGET = 576;
 
     useEffect(() => {
         async function fetchData() {
@@ -112,12 +112,12 @@ export default function Analytics() {
                 const burnData = [];
                 let runningSpent = 0;
                 for (let w = 1; w <= 12; w++) {
-                    const ideal = 240 - (20 * w); // 20hrs/week ideal
+                    const ideal = 576 - (48 * w); // 48hrs/week ideal
                     runningSpent += (spent / 12); // Average spread
                     burnData.push({
                         week: `W${w}`,
                         Ideal: ideal,
-                        Actual: Math.max(0, 240 - runningSpent)
+                        Actual: Math.max(0, 576 - runningSpent)
                     });
                 }
                 setBurnDownData(burnData);
@@ -161,24 +161,23 @@ export default function Analytics() {
 
     // Logic Fixes (Strict per User Request)
     const weeklySpent = weeklyMomentum.reduce((acc, d) => acc + d.hours, 0);
-    const WEEKLY_TARGET = 20;
+    const WEEKLY_TARGET = 48;
 
     const remaining = Math.max(0, QUARTER_BUDGET - totalSpent);
     // Percentage spent (capped at 100%)
     const spentPct = Math.min(1, totalSpent / QUARTER_BUDGET);
 
     // Gauge Visualization:
-    // If we want to show "Remaining", full bar = 100% remaining. 
     // If we want to show "Spent" (filling up), full bar = 100% spent.
-    // User asked "percentage... calculated as (TotalSpentHours / 240)".
+    // User asked "percentage... calculated as (TotalSpentHours / 576)".
     // Let's make the gauge 'Fill Up' as we spend. 
     // Empty (0 spent) -> offset 251.2
-    // Full (240 spent) -> offset 0
+    // Full (576 spent) -> offset 0
     const dashOffset = 251.2 * (1 - spentPct);
 
     let gaugeColor = "#3b82f6"; // Blue
-    if (remaining < 20) gaugeColor = "#f59e0b"; // Orange
-    if (remaining < 5) gaugeColor = "#ef4444"; // Red
+    if (remaining < 48) gaugeColor = "#f59e0b"; // Orange (1 week left)
+    if (remaining < 8) gaugeColor = "#ef4444"; // Red (1 day left)
 
     return (
         <div className="space-y-8 pb-12">
@@ -192,7 +191,7 @@ export default function Analytics() {
                         </h2>
                         <div className="space-y-2">
                             <p className="text-slate-400 max-w-lg">
-                                You have <span className="font-bold text-white">{remaining.toFixed(1)} hours</span> remaining of your 240-hour deep work budget for Q1 2026.
+                                You have <span className="font-bold text-white">{remaining.toFixed(1)} hours</span> remaining of your 576-hour deep work budget for Q1 2026.
                             </p>
                             <div className="flex items-center gap-3 text-sm font-mono bg-black/20 w-fit px-3 py-1.5 rounded-lg border border-white/5">
                                 <span className="text-slate-400">Current Week:</span>
@@ -202,11 +201,11 @@ export default function Analytics() {
                             </div>
                         </div>
 
-                        {remaining < 20 && (
-                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg w-fit ${remaining < 5 ? 'text-red-400 bg-red-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
+                        {remaining < 48 && (
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg w-fit ${remaining < 8 ? 'text-red-400 bg-red-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
                                 <AlertTriangle size={18} />
                                 <span className="text-sm font-bold">
-                                    {remaining < 5 ? "Critical: Budget almost depleted!" : "Warning: Low budget remaining."}
+                                    {remaining < 8 ? "Critical: Budget almost depleted!" : "Warning: Low budget remaining."}
                                 </span>
                             </div>
                         )}

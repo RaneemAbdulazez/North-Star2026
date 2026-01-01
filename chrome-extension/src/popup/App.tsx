@@ -31,7 +31,7 @@ function App() {
     const [breakElapsed, setBreakElapsed] = useState(0);
 
     const [totalSpent, setTotalSpent] = useState(0);
-    const TOTAL_BUDGET = 425;
+    const TOTAL_BUDGET = 576;
 
     // API URL
     const API_URL = 'https://north-star2026.vercel.app/api/sessions/manage';
@@ -216,7 +216,7 @@ function App() {
             <div className="p-4 border-b border-white/5 bg-slate-900/50">
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-xs text-blue-400 font-bold tracking-wider uppercase flex items-center gap-2">
-                        <Activity size={12} /> 240H Budget
+                        <Activity size={12} /> 576H Budget
                     </span>
                     <span className="text-xs text-slate-400 font-mono">
                         {totalSpent.toFixed(1)} / {TOTAL_BUDGET}h

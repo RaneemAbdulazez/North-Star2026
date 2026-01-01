@@ -144,8 +144,8 @@ export default function GoalSidebar({ projects, goals, tasks, onAddGoal, onAddTa
 
 function DraggableSidebarTask({ task, projectColor }: { task: Task, projectColor: string }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: task.id,
-        data: { type: 'task', task, projectColor }
+        id: `sidebar-${task.id}`,
+        data: { type: 'task', task, projectColor, origin: 'sidebar' }
     });
 
     const style = transform ? {
@@ -156,7 +156,7 @@ function DraggableSidebarTask({ task, projectColor }: { task: Task, projectColor
     return (
         <div
             ref={setNodeRef}
-            style={style}
+            style={{ ...style, touchAction: 'none' }}
             {...listeners}
             {...attributes}
             className={`group flex items-center gap-2 p-2 rounded bg-surface border border-white/5 hover:border-white/20 cursor-grab active:cursor-grabbing ${task.status === 'done' ? 'opacity-50' : ''}`}

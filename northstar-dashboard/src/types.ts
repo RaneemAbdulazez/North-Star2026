@@ -19,6 +19,7 @@ export interface Task {
     title: string;
     estimated_minutes: number;
     scheduled_date: string | null;
+    scheduled_time?: string; // e.g. "09:00:00"
     status: 'todo' | 'done';
     goalId?: string; // Links to Goal (if part of hierarchy)
     duration?: number; // Added alias for compatibility if needed, though estimated_minutes is primary

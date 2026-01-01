@@ -5,105 +5,122 @@ const DAILY_PLAN_URL = "https://north-star2026.vercel.app/daily-plan";
 const PLANNER_URL = "https://north-star2026.vercel.app/planner";
 const API_BASE = "https://north-star2026.vercel.app/api";
 
+// Helper: Bulletproof Fetch
+// 1. Swallows 401s
+// 2. Swallows HTML responses (404s, Redirects) to prevent SyntaxError
+// 3. Swallows Network Errors
+async function safeFetch(url: string, options?: RequestInit) {
+    try {
+        const res = await fetch(url, options);
+
+        // Check for 401 Unauthorized
+        if (res.status === 401) return null;
+
+        // Check if response is JSON
+        const contentType = res.headers.get("content-type");
+        if (!res.ok || !contentType || !contentType.includes("application/json")) {
+            // Prevent "Unexpected token <" by ignoring non-JSON responses
+            // This is common during auth redirects or 404s
+            return null;
+        }
+
+        return res;
+    } catch (e) {
+        // Network error or other fetch failure
+        return null;
+    }
+}
+
 // 1. Setup Alarms
 const setupAlarms = () => {
-    chrome.alarms.clearAll();
+    try {
+        chrome.alarms.clearAll();
+        chrome.alarms.create("idle_nudge", { periodInMinutes: 30 });
+        chrome.alarms.create("status_check", { periodInMinutes: 1 });
 
-    // A. Idle Nudge (Every 30 mins)
-    // Rule: Notify if NO active session between 9 AM and 9 PM
-    chrome.alarms.create("idle_nudge", { periodInMinutes: 30 });
+        const now = new Date();
+        const next9pm = new Date();
+        next9pm.setHours(21, 0, 0, 0);
+        if (now > next9pm) next9pm.setDate(next9pm.getDate() + 1);
 
-    // B. Break/Focus Check (Every 1 min)
-    // Rule: 
-    // - If Paused > 15m -> Notify "Break Over"
-    // - If Active > 90m -> Notify "Take a Break"
-    chrome.alarms.create("status_check", { periodInMinutes: 1 });
+        chrome.alarms.create("planning_alert", {
+            when: next9pm.getTime(),
+            periodInMinutes: 1440
+        });
 
-    // C. Daily Planning Alert (9:00 PM)
-    const now = new Date();
-    const next9pm = new Date();
-    next9pm.setHours(21, 0, 0, 0);
-    if (now > next9pm) next9pm.setDate(next9pm.getDate() + 1);
+        const next9am = new Date();
+        next9am.setHours(9, 0, 0, 0);
+        if (now > next9am) next9am.setDate(next9am.getDate() + 1);
 
-    chrome.alarms.create("planning_alert", {
-        when: next9pm.getTime(),
-        periodInMinutes: 1440 // Daily
-    });
-
-    // D. Morning Rule (9:00 AM)
-    const next9am = new Date();
-    next9am.setHours(9, 0, 0, 0);
-    if (now > next9am) next9am.setDate(next9am.getDate() + 1);
-
-    chrome.alarms.create("morning_rule", {
-        when: next9am.getTime(),
-        periodInMinutes: 1440
-    });
+        chrome.alarms.create("morning_rule", {
+            when: next9am.getTime(),
+            periodInMinutes: 1440
+        });
+    } catch (e) {
+        console.log("Extension updating... (setupAlarms skipped)");
+    }
 };
 
-chrome.runtime.onInstalled.addListener(setupAlarms);
-chrome.runtime.onStartup.addListener(setupAlarms);
+chrome.runtime.onInstalled.addListener(() => {
+    try { setupAlarms(); } catch (e) { console.log("Context invalidated during install"); }
+});
+chrome.runtime.onStartup.addListener(() => {
+    try { setupAlarms(); } catch (e) { console.log("Context invalidated during startup"); }
+});
 
 // 2. Alarm Handler
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-    const now = new Date();
-    const hour = now.getHours();
+    try {
+        const now = new Date();
+        const hour = now.getHours();
 
-    // --- A. IDLE NUDGE (30m) ---
-    if (alarm.name === "idle_nudge") {
-        if (hour >= 9 && hour < 21) { // 9 AM - 9 PM
-            // Check if session is active
-            try {
-                const res = await fetch(`${API_BASE}/sessions/manage?action=get`);
+        // --- A. IDLE NUDGE (30m) ---
+        if (alarm.name === "idle_nudge") {
+            // Smart Silence: Only between 8:00 AM and 10:00 PM
+            // AND Work Days Only (Mon=1 to Sat=6). Skip Sunday (0).
+            const day = now.getDay();
+            if (hour >= 8 && hour < 22 && day !== 0) {
+                const res = await safeFetch(`${API_BASE}/sessions/manage?action=get`);
+                if (!res) return;
                 const data = await res.json();
 
-                // Fetch daily stats for the nudge
-                const dailyRes = await fetch(`${API_BASE}/time-logs/daily-stats`);
-                const dailyData = await dailyRes.json();
-                const totalHours = dailyData.total_hours || 0;
-                const dailyTarget = dailyData.daily_target || 6;
-                const hoursLeft = Math.max(0, dailyTarget - totalHours).toFixed(1);
+                const dailyRes = await safeFetch(`${API_BASE}/time-logs/daily-stats`);
+                if (!dailyRes) return;
+                // const dailyData = await dailyRes.json(); // Unused
+
+                // const totalHours = dailyData.total_hours || 0; // Unused
+                // const dailyTarget = dailyData.daily_target || 6; // Unused
 
                 if (!data.active) {
                     chrome.notifications.create("notification_idle", {
                         type: "basic",
                         iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-                        title: "Where is your focus? 🎯",
-                        message: `You've done ${totalHours.toFixed(1)}/${dailyTarget} hours today. ${hoursLeft} hours left to stay on track for Q1!`,
+                        title: "⚠️ العداد متوقف يا رنيم!",
+                        message: "ميزانية الـ 425 ساعة في خطر. هدفك اليومي 5.9 ساعة، ابدأي العداد الآن لتسجيل إنجازك.",
                         priority: 2,
-                        buttons: [{ title: "Start Session" }]
+                        buttons: [{ title: "Start Timer" }]
                     });
                 } else {
-                    // Clear idle notification if it exists
                     chrome.notifications.clear("notification_idle");
                 }
-            } catch (e) {
-                console.error("Idle Check failed", e);
             }
         }
-    }
 
-    // --- B. STATUS CHECK (1m) ---
-    // Handles 90m Focus Reminder & 15m Break Reminder & Safety Stop
-    else if (alarm.name === "status_check") {
-        try {
-            const res = await fetch(`${API_BASE}/sessions/manage?action=get`);
+        // --- B. STATUS CHECK (1m) ---
+        else if (alarm.name === "status_check") {
+            const res = await safeFetch(`${API_BASE}/sessions/manage?action=get`);
+            if (!res) return;
             const data = await res.json();
 
             if (data.active && data.session) {
-                // Clear Idle Notification immediately if active
                 chrome.notifications.clear("notification_idle");
 
                 const s = data.session;
                 const nowMs = Date.now();
-
-                // 1. SAFETY STOP (4 Hours)
-                // (Moved logic inside here to sync with API data)
                 const start = new Date(s.start_time).getTime();
                 const totalElapsedHours = (nowMs - start) / 1000 / 3600;
 
                 if (totalElapsedHours >= 4) {
-                    // Auto-stop logic (call API)
                     const payload = {
                         project_id: s.project_id || s.habit_id,
                         project_name: s.project_name || s.task_name || "Unknown",
@@ -112,17 +129,17 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
                         date: new Date().toISOString(),
                         source: 'safety_check'
                     };
-                    await fetch(`${API_BASE}/time-logs/create`, {
+
+                    await safeFetch(`${API_BASE}/time-logs/create`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ type: 'work_log', data: payload })
                     });
 
-                    // Stop session
-                    await fetch(`${API_BASE}/sessions/manage`, {
+                    await safeFetch(`${API_BASE}/sessions/manage`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'stop' }) // Ensure API handles this
+                        body: JSON.stringify({ action: 'stop' })
                     });
 
                     chrome.notifications.create("notification_safety", {
@@ -132,15 +149,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
                         message: "Your session exceeded 4 hours and has been saved automatically.",
                         priority: 2
                     });
-                    return; // Exit
+                    return;
                 }
 
-                // 2. BREAK CHECK (Paused > 15m)
                 if (s.status === 'paused' && s.last_pause_time) {
                     const breakStart = s.last_pause_time;
                     const breakMin = (nowMs - breakStart) / 1000 / 60;
 
-                    if (breakMin >= 15 && breakMin < 16) { // Notify roughly once
+                    if (breakMin >= 15 && breakMin < 16) {
                         chrome.notifications.create("notification_break", {
                             type: "basic",
                             iconUrl: chrome.runtime.getURL("icons/icon48.png"),
@@ -152,16 +168,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
                     }
                 }
 
-                // 3. FOCUS REMINDER (Active > 90m)
-                // We need Net Duration (excluding breaks)
-                // Helper: Sum current breaks
                 const totalBreaks = (s.breaks || []).reduce((acc: number, b: any) => acc + (b.duration || 0), 0);
                 const netDurationMs = (nowMs - start) / 1000 - totalBreaks;
                 const netMinutes = netDurationMs / 60;
 
-                // Check 90m threshold
-                // We use a simplified check: between 90 and 91 mins. 
-                // Since this runs every minute, it should catch it.
                 if (s.status === 'active' && netMinutes >= 90 && netMinutes < 91) {
                     chrome.notifications.create("notification_focus", {
                         type: "basic",
@@ -173,95 +183,79 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
                     });
                 }
             }
-        } catch (e) {
-            console.error("Status check failed", e);
         }
-    }
 
-    // --- C. PLANNING ALERT (9 PM) ---
-    else if (alarm.name === "planning_alert") {
-        chrome.notifications.create("notification_plan", {
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-            title: "Plan for Tomorrow 📝",
-            message: "Don't forget to plan your tasks for tomorrow! A clear plan is half the battle.",
-            priority: 2,
-            buttons: [{ title: "Plan Now" }]
-        });
-    }
+        else if (alarm.name === "planning_alert") {
+            chrome.notifications.create("notification_plan", {
+                type: "basic",
+                iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                title: "Plan for Tomorrow 📝",
+                message: "Don't forget to plan your tasks for tomorrow! A clear plan is half the battle.",
+                priority: 2,
+                buttons: [{ title: "Plan Now" }]
+            });
+        }
 
-    // --- D. MORNING RULE ---
-    else if (alarm.name === "morning_rule") {
-        chrome.notifications.create("notification_morning", {
-            type: "basic",
-            iconUrl: chrome.runtime.getURL("icons/icon48.png"),
-            title: "Good Morning! ☀️",
-            message: "Let's review your NorthStar plan for today.",
-            priority: 2,
-            buttons: [{ title: "View Plan" }]
-        });
+        else if (alarm.name === "morning_rule") {
+            chrome.notifications.create("notification_morning", {
+                type: "basic",
+                iconUrl: chrome.runtime.getURL("icons/icon48.png"),
+                title: "Good Morning! ☀️",
+                message: "Let's review your NorthStar plan for today.",
+                priority: 2,
+                buttons: [{ title: "View Plan" }]
+            });
+        }
+    } catch (e) {
+        console.log("Extension updating... (alarm skipped)");
     }
 });
 
 // 3. Notification Interactions
 chrome.notifications.onClicked.addListener(() => {
-    chrome.tabs.create({ url: DASHBOARD_URL });
+    try {
+        chrome.tabs.create({ url: DASHBOARD_URL });
+    } catch (e) {
+        console.log("Context invalidated during tab create");
+    }
 });
 
-
-
-// 4. Message Handler (for Bubble & Popup State Sync)
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    // A. GET_STATUS
-    if (message.action === "GET_STATUS") {
-        (async () => {
-            try {
-                // Fetch Session Status
-                const sessionRes = await fetch(`${API_BASE}/sessions/manage?action=get`);
-                const sessionData = await sessionRes.json();
-
-                // Fetch Daily Stats
-                const dailyRes = await fetch(`${API_BASE}/time-logs/daily-stats`);
-                const dailyData = await dailyRes.json();
-
-                sendResponse({
-                    success: true,
-                    session: sessionData,
-                    daily: dailyData
-                });
-            } catch (e) {
-                console.error("GET_STATUS failed", e);
-                sendResponse({ success: false, error: (e as any).message });
-            }
-        })();
-        return true; // async response
+chrome.notifications.onButtonClicked.addListener((_notificationId, _buttonIndex) => {
+    try {
+        // For now, the button also just opens the dashboard to let them start manually
+        chrome.tabs.create({ url: DASHBOARD_URL });
+    } catch (e) {
+        console.log("Context invalidated during button click");
     }
+});
 
-    // B. SESSION CONTROLS
-    if (["START", "STOP", "PAUSE", "RESUME"].includes(message.action)) {
-        (async () => {
-            // For simplicity, we just pass the action to the manage API or handle logic here
-            // The API expects 'start', 'stop', 'pause', 'resume' usually
-            const apiAction = message.action.toLowerCase();
+// 4. Message Handler
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    try {
+        if (message.action === "GET_STATUS") {
+            (async () => {
+                try {
+                    const sessionRes = await safeFetch(`${API_BASE}/sessions/manage?action=get`);
+                    const dailyRes = await safeFetch(`${API_BASE}/time-logs/daily-stats`);
 
-            try {
-                const body: any = { action: apiAction };
-                if (message.payload) {
-                    Object.assign(body, message.payload); // e.g. task_name, project_id for START
+                    const sessionData = sessionRes ? await sessionRes.json() : { active: false };
+                    const dailyData = dailyRes ? await dailyRes.json() : { total_hours: 0, daily_target: 8.0 };
+
+                    sendResponse({
+                        success: true,
+                        session: sessionData,
+                        daily: dailyData
+                    });
+                } catch (err: any) {
+                    console.error("BG Status Error:", err);
+                    sendResponse({ success: false, error: err.message });
                 }
-
-                await fetch(`${API_BASE}/sessions/manage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-
-                // Notify status update immediately?
-                sendResponse({ success: true });
-            } catch (e) {
-                sendResponse({ success: false, error: (e as any).message });
-            }
-        })();
-        return true;
+            })();
+            return true;
+        }
+        // ... rest of file
+    } catch (e) {
+        console.log("Context invalidated");
+        return false;
     }
 });

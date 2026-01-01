@@ -41,7 +41,7 @@ export default function Dashboard() {
     const [habitConsistency] = useState(0);
     const [revenueAlignment, setRevenueAlignment] = useState(0);
 
-    const QUARTER_BUDGET = 425;
+    const QUARTER_BUDGET = 576;
 
     useEffect(() => {
         async function fetchData() {
@@ -264,8 +264,8 @@ export default function Dashboard() {
             {/* BURNDOWN AREA (Re-added) */}
             <div className="bg-surface/50 border border-white/5 p-6 rounded-3xl">
                 <h3 className="text-lg font-bold text-white mb-6">Quarterly Burn-Down</h3>
-                <div className="h-72" style={{ width: '100%', height: '300px' }}>
-                    <ResponsiveContainer width="100%" height={300}>
+                <div className="w-full h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={burnDownData}>
                             <defs>
                                 <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">

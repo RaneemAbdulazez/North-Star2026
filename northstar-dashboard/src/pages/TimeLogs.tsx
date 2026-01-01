@@ -3,21 +3,10 @@ import { motion } from 'framer-motion';
 import { Trash2, Calendar, Clock, Coffee, Pencil, History, Search, Zap, Briefcase } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { EditLogModal } from '../components/EditLogModal';
 
-// API Helpers
-const API_BASE = "https://north-star2026.vercel.app/api/time-logs";
 
-const deleteLog = async (id: string, type: 'work_log' | 'habit_log') => {
-    const res = await fetch(`${API_BASE}/delete`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type })
-    });
-    if (!res.ok) throw new Error("Failed to delete log");
-    return res.json();
-};
 
 interface LogItem {
     id: string;
@@ -91,7 +80,8 @@ export default function TimeLogs() {
     const handleDelete = async (id: string, type: 'work' | 'habit') => {
         if (!confirm("Are you sure you want to delete this log?")) return;
         try {
-            await deleteLog(id, type === 'work' ? 'work_log' : 'habit_log');
+            const collectionName = type === 'work' ? 'work_logs' : 'habit_logs';
+            await deleteDoc(doc(db, collectionName, id));
             // Optimistic update
             setLogs(prev => prev.filter(l => l.id !== id));
         } catch (error) {
@@ -110,18 +100,13 @@ export default function TimeLogs() {
     };
 
     const handleUpdateLog = async (id: string, newName: string, newDuration: number) => {
-        const res = await fetch(`${API_BASE}/edit`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                logId: id,
-                newTaskName: newName,
-                newDuration: newDuration,
-                type: 'work_log'
-            })
-        });
+        // We only support editing work logs for now, as enforced by handleEditClick
+        const logRef = doc(db, 'work_logs', id);
 
-        if (!res.ok) throw new Error("Failed to update log");
+        await updateDoc(logRef, {
+            task_name: newName,     // Update the field name in Firestore
+            hours: newDuration      // Update the hours
+        });
 
         // Optimistic Update
         setLogs(prev => prev.map(l => {

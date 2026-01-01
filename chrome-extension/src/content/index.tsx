@@ -1,7 +1,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Bubble } from './Bubble';
-import '../index.css'; // We will need to capture these styles to inject
+import { isValidContext } from '../utils/chrome';
+// @ts-ignore
+import styles from '../index.css?inline'; // Capture styles as string for Shadow DOM injection
 
 // ID for our host element
 const HOST_ID = 'northstar-bubble-host';
@@ -9,10 +11,20 @@ const HOST_ID = 'northstar-bubble-host';
 console.log("NorthStar Bubble Script Loaded 🚀");
 
 function init() {
+    // 1. Sandbox/Iframe Proctection: Only inject in top window
+    if (window.self !== window.top) {
+        return;
+    }
+
+    // 2. Context Safety
+    if (!isValidContext()) {
+        return;
+    }
+
     console.log("NorthStar Bubble: Initializing...");
+
     // Check if already injected
     if (document.getElementById(HOST_ID)) {
-        console.log("NorthStar Bubble: Already injected.");
         return;
     }
 
@@ -38,7 +50,7 @@ function init() {
     // However, since we set up basic configured css, let's try injecting a link first or style tag.
 
     const styleSlot = document.createElement('style');
-    styleSlot.textContent = `
+    styleSlot.textContent = styles + `
         :host { all: initial; }
         .northstar-bubble {
             position: fixed;

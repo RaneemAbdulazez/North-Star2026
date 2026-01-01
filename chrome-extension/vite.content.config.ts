@@ -9,6 +9,7 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         emptyOutDir: false, // Don't wipe the popup build
+        cssCodeSplit: true, // Prevent automatic CSS injection into JS
         rollupOptions: {
             input: {
                 content: resolve(__dirname, 'src/content/index.tsx'),

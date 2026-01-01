@@ -76,7 +76,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
                 });
 
                 const grandTotal = totalHours + habitHours;
-                const DAILY_TARGET = 5.9; // Dynamic targets could be fetched here
+                const DAILY_TARGET = 8.0; // Dynamic targets could be fetched here
 
                 return res.status(200).json({
                     date: startOfDay.toISOString(),

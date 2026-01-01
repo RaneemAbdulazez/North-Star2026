@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Minimize2 } from 'lucide-react';
+import { safeSendMessage } from '../utils/chrome';
 
 interface SessionState {
     status: 'idle' | 'focus' | 'break' | 'active' | 'paused';
@@ -20,46 +21,58 @@ export const Bubble: React.FC = () => {
     const [session, setSession] = useState<SessionState>({ status: 'idle' });
     const [elapsed, setElapsed] = useState(0);
     const [dailyProgress, setDailyProgress] = useState(3.5); // Mock 3.5h for initial render
-    const [dailyTarget, setDailyTarget] = useState(5.9);
+    const [dailyTarget, setDailyTarget] = useState(8.0);
 
     // Initial Load & Polling for State
     useEffect(() => {
-        const fetchState = () => {
-            // @ts-ignore - Chrome API types might be missing in some setups
-            if (typeof chrome !== 'undefined' && chrome.runtime) {
-                chrome.runtime.sendMessage({ action: "GET_STATUS" }, (res) => {
-                    if (res && res.success) {
-                        // Parse Session
-                        if (res.session.active && res.session.session) {
-                            const s = res.session.session;
-                            setSession({
-                                status: s.status,
-                                taskName: s.task_name || s.project_name,
-                                startTime: new Date(s.start_time).getTime(),
-                                duration: s.duration
-                            });
-                            // Calculate elapsed based on start time
-                            const now = Date.now();
-                            const start = new Date(s.start_time).getTime();
-                            setElapsed(Math.floor((now - start) / 1000));
-                        } else {
-                            setSession({ status: 'idle' });
-                            setElapsed(0);
-                        }
+        let intervalId: any;
+        let isMounted = true;
 
-                        // Parse Daily
-                        if (res.daily) {
-                            setDailyProgress(res.daily.total_hours);
-                            setDailyTarget(res.daily.daily_target);
-                        }
-                    }
-                });
+        const fetchState = async () => {
+            const res = await safeSendMessage({ action: "GET_STATUS" });
+
+            if (!isMounted) return;
+
+            // If null, it means context was invalidated or error occurred
+            if (!res) {
+                clearInterval(intervalId); // STOP POLLING IMMEDIATELY
+                return;
+            }
+
+            if (res.success) {
+                // Parse Session
+                if (res.session.active && res.session.session) {
+                    const s = res.session.session;
+                    setSession({
+                        status: s.status,
+                        taskName: s.task_name || s.project_name,
+                        startTime: new Date(s.start_time).getTime(),
+                        duration: s.duration
+                    });
+                    // Calculate elapsed based on start time
+                    const now = Date.now();
+                    const start = new Date(s.start_time).getTime();
+                    setElapsed(Math.floor((now - start) / 1000));
+                } else {
+                    setSession({ status: 'idle' });
+                    setElapsed(0);
+                }
+
+                // Parse Daily
+                if (res.daily) {
+                    setDailyProgress(res.daily.total_hours);
+                    setDailyTarget(res.daily.daily_target);
+                }
             }
         };
 
         fetchState();
-        const interval = setInterval(fetchState, 5000); // Sync every 5s
-        return () => clearInterval(interval);
+        intervalId = setInterval(fetchState, 5000); // Sync every 5s
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
     }, []);
 
     // Local Timer Tick (for smooth UI)
@@ -77,10 +90,7 @@ export const Bubble: React.FC = () => {
 
     // Handlers
     const handleControl = (action: string) => {
-        if (typeof chrome !== 'undefined' && chrome.runtime) {
-            chrome.runtime.sendMessage({ action });
-            // Optimistic update
-        }
+        safeSendMessage({ action });
     };
 
     // ... Draggable Logic (Keep same) ...
