@@ -20,8 +20,8 @@ export const Bubble: React.FC = () => {
     const [expanded, setExpanded] = useState(false);
     const [session, setSession] = useState<SessionState>({ status: 'idle' });
     const [elapsed, setElapsed] = useState(0);
-    const [dailyProgress, setDailyProgress] = useState(3.5); // Mock 3.5h for initial render
-    const [dailyTarget, setDailyTarget] = useState(8.0);
+    const [dailyProgress, setDailyProgress] = useState(0);
+
 
     // Initial Load & Polling for State
     useEffect(() => {
@@ -61,7 +61,6 @@ export const Bubble: React.FC = () => {
                 // Parse Daily
                 if (res.daily) {
                     setDailyProgress(res.daily.total_hours);
-                    setDailyTarget(res.daily.daily_target);
                 }
             }
         };
@@ -140,7 +139,8 @@ export const Bubble: React.FC = () => {
 
 
     // Percentage Display Logic
-    const progressPercent = Math.min((dailyProgress / dailyTarget) * 100, 100);
+    // Percentage Display Logic (Hardcoded 8h target = 480m)
+    const progressPercent = dailyProgress > 0 ? Math.min((dailyProgress / 8.0) * 100, 100) : 0;
 
     return (
         <>
