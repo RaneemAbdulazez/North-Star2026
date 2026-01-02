@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { db } from '../config/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -58,7 +58,7 @@ export default function Analytics() {
             try {
                 // Fetch Data
                 const [logsSnap, projectsSnap, habitsSnap] = await Promise.all([
-                    getDocs(query(collection(db, "work_logs"), orderBy("date", "asc"))),
+                    getDocs(query(collection(db, "work_logs"), where("date", ">=", "2026-01-01"), orderBy("date", "asc"))),
                     getDocs(collection(db, "projects")),
                     getDocs(collection(db, "habits"))
                 ]);

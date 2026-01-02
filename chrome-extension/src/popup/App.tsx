@@ -43,7 +43,7 @@ function App() {
                 const [pSnap, hSnap, lSnap] = await Promise.all([
                     getDocs(collection(db, "projects")),
                     getDocs(collection(db, "habits")),
-                    getDocs(collection(db, "work_logs"))
+                    getDocs(query(collection(db, "work_logs"), where("date", ">=", "2026-01-01")))
                 ]);
 
                 const pList = pSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name, type: 'project' as const })).filter(p => !p.name.includes("Archive"));
