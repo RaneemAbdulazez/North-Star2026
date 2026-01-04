@@ -59,11 +59,11 @@ export default function Journal() {
                 setFetchingToday(true);
                 try {
                     const todayStr = getLocalISODate();
-                    const docId = `${todayStr}_${activeUser.uid}`;
+                    const docId = `${activeUser.uid}_${todayStr}`;
                     console.log("Fetching journal for:", docId);
 
                     // 1. Fetch Today
-                    const docRef = doc(db, 'daily_journal', docId);
+                    const docRef = doc(db, 'daily_journals', docId);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
                         const e = docSnap.data() as DailyJournal;
@@ -93,7 +93,7 @@ export default function Journal() {
 
                     // 2. Fetch History (Last 100 days for Archive)
                     const q = query(
-                        collection(db, 'daily_journal'),
+                        collection(db, 'daily_journals'),
                         where('userId', '==', activeUser.uid),
                         orderBy('date', 'desc'),
                         limit(100)
@@ -123,7 +123,7 @@ export default function Journal() {
 
         try {
             const dateStr = getLocalISODate();
-            const docId = `${dateStr}_${user.uid}`;
+            const docId = `${user.uid}_${dateStr}`;
 
             const payload: any = {
                 userId: user.uid,
@@ -137,7 +137,7 @@ export default function Journal() {
             };
 
             // Using Firestore Direct Implementation instead of Fetch API
-            await setDoc(doc(db, 'daily_journal', docId), payload, { merge: true });
+            await setDoc(doc(db, 'daily_journals', docId), payload, { merge: true });
 
             // Update local history
             setHistory(prev => {
