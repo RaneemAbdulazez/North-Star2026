@@ -19,13 +19,14 @@ service cloud.firestore {
     }
 
     // --- NEW: NorthStar Journaling & Cyclist System ---
-    match /daily_journals/{journalId} {
-      // 1. Strictly Private: Only the creator can read or write
-      // 2. Data Integrity: Ensure 'userId' field matches the Auth ID on creation
+    match /daily_journal/{journalId} {
+      // Allow read/write for the specific Mock User ID used in development
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId 
+                         || request.resource.data.userId == "dev_prototype_user_123" 
+                         || resource.data.userId == "dev_prototype_user_123";
       
+      // Also allow creation if authenticated (standard flow)
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     
   }

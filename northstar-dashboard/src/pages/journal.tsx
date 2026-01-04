@@ -71,12 +71,24 @@ export default function Journal() {
                         setMindset(e.mindset_shift || '');
                         setBrainDump(e.brain_dump || '');
                         setSelectedTags(e.tags || []);
+                        console.log("Loaded from Firestore Success");
                     } else {
-                        // Clear fields if no entry exists for today (prevents stale state on date change)
-                        setMood(3);
-                        setMindset('');
-                        setBrainDump('');
-                        setSelectedTags([]);
+                        // Fallback: Check LocalStorage (if Firestore save failed previously)
+                        const localData = localStorage.getItem(`journal_${todayStr}`);
+                        if (localData) {
+                            console.log("Loaded from LocalStorage Success");
+                            const ld = JSON.parse(localData);
+                            setMood(ld.mood || 3);
+                            setMindset(ld.mindset || '');
+                            setBrainDump(ld.brainDump || '');
+                            setSelectedTags(ld.selectedTags || []);
+                        } else {
+                            // Clear fields if really no entry exists
+                            setMood(3);
+                            setMindset('');
+                            setBrainDump('');
+                            setSelectedTags([]);
+                        }
                     }
 
                     // 2. Fetch History (Last 100 days for Archive)
