@@ -13,7 +13,7 @@ import FocusMode from './pages/FocusMode';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
 import WeeklyPlanner from './pages/WeeklyPlanner';
-import Journal from './pages/Journal';
+import Journal from './pages/journal';
 
 
 function PageWrapper({ children }: { children: React.ReactNode }) {

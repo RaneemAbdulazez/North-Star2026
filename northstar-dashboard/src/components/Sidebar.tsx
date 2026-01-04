@@ -70,7 +70,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     <NavItem to="/daily-path" icon={<Wand2 size={20} />} label="Daily Path" onClick={onClose} />
                     <NavItem to="/planner" icon={<Calendar size={20} />} label="Weekly Planner" onClick={onClose} />
 
-                    <NavItem to="/journal" icon={<BookOpen size={20} />} label="Journal" onClick={onClose} />
+                    <NavItem to="/journal" icon={<BookOpen size={20} />} label="Journal & Cyclist Sync" onClick={onClose} />
 
                     <div className="my-4 px-2">
                         <div className="h-px bg-gradient-to-r from-transparent via-blue-900/50 to-transparent" />
