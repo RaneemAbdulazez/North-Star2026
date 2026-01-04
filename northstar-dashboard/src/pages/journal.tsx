@@ -30,6 +30,7 @@ export default function Journal() {
     const [fetchingToday, setFetchingToday] = useState(true);
     const [saving, setSaving] = useState(false);
     const [savedSuccess, setSavedSuccess] = useState(false);
+    const [isIndexing, setIsIndexing] = useState(false);
 
     // ARCHIVE STATE
     const [searchQuery, setSearchQuery] = useState('');
@@ -110,8 +111,9 @@ export default function Journal() {
                     setHistory(historyData);
                 } catch (error: any) {
                     console.error("Failed to load history (likely index building)", error);
-                    // If index is missing/building, we don't block the UI.
-                    // We can just leave history empty or show a toast if needed.
+                    if (error.message.includes('index')) {
+                        setIsIndexing(true);
+                    }
                 } finally {
                     setLoading(false);
                 }
@@ -348,7 +350,16 @@ export default function Journal() {
                         <div className="lg:col-span-4 flex flex-col">
                             <h2 className="text-xl font-light text-white mb-6 flex items-center gap-3"><BookOpen size={20} className="text-slate-600" /> <span className="opacity-50">Recent</span> Reflections</h2>
                             <div className="flex-1 space-y-4">
-                                {history.slice(0, 3).map((entry) => (
+                                {isIndexing && (
+                                    <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex items-center gap-3">
+                                        <Loader2 size={20} className="text-yellow-500 animate-spin" />
+                                        <div className="text-xs text-yellow-200">
+                                            <strong className="block uppercase tracking-wider mb-0.5">Optimizing Database...</strong>
+                                            Creating indexes for high-speed queries.
+                                        </div>
+                                    </div>
+                                )}
+                                {!isIndexing && history.slice(0, 3).map((entry) => (
                                     <motion.div
                                         key={entry.id}
                                         whileHover={{ x: 5 }}
@@ -368,12 +379,12 @@ export default function Journal() {
                                         </div>
                                     </motion.div>
                                 ))}
-                                {history.length === 0 && (
+                                {!isIndexing && history.length === 0 && (
                                     <div className="text-center text-slate-600 py-8 text-sm italic">
                                         No entries yet. Start writing!
                                     </div>
                                 )}
-                                {history.length > 0 && (
+                                {!isIndexing && history.length > 0 && (
                                     <button
                                         onClick={() => setActiveTab('archive')}
                                         className="w-full py-3 text-xs uppercase tracking-widest text-slate-500 hover:text-cyan-400 border border-dashed border-slate-800 hover:border-cyan-500/30 rounded-xl transition-all"
