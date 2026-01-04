@@ -57,12 +57,13 @@ export default function Journal() {
 
             if (activeUser) {
                 setFetchingToday(true);
+
+                // 1. Fetch Today's Entry (Independent of History Index)
                 try {
                     const todayStr = getLocalISODate();
                     const docId = `${activeUser.uid}_${todayStr}`;
                     console.log("Fetching journal for:", docId);
 
-                    // 1. Fetch Today
                     const docRef = doc(db, 'daily_journals', docId);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
@@ -90,8 +91,14 @@ export default function Journal() {
                             setSelectedTags([]);
                         }
                     }
+                } catch (error) {
+                    console.error("Failed to load today's journal", error);
+                } finally {
+                    setFetchingToday(false); // Stop "Loading reflection..." spinner
+                }
 
-                    // 2. Fetch History (Last 100 days for Archive)
+                // 2. Fetch History (Separate Try-Catch for Index Building)
+                try {
                     const q = query(
                         collection(db, 'daily_journals'),
                         where('userId', '==', activeUser.uid),
@@ -101,11 +108,12 @@ export default function Journal() {
                     const querySnapshot = await getDocs(q);
                     const historyData = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() })) as DailyJournal[];
                     setHistory(historyData);
-                } catch (error) {
-                    console.error("Failed to load journal data", error);
+                } catch (error: any) {
+                    console.error("Failed to load history (likely index building)", error);
+                    // If index is missing/building, we don't block the UI.
+                    // We can just leave history empty or show a toast if needed.
                 } finally {
                     setLoading(false);
-                    setFetchingToday(false);
                 }
             }
         });
@@ -258,7 +266,7 @@ export default function Journal() {
                             {fetchingToday ? (
                                 <div className="w-full h-full min-h-[450px] flex flex-col items-center justify-center text-slate-500 mt-6">
                                     <Loader2 size={32} className="animate-spin mb-4 text-cyan-500" />
-                                    <span className="text-sm font-mono uppercase tracking-widest animate-pulse">Loading reflection...</span>
+                                    <span className="text-sm font-mono uppercase tracking-widest animate-pulse">Syncing with Cloud...</span>
                                 </div>
                             ) : (
                                 <textarea
