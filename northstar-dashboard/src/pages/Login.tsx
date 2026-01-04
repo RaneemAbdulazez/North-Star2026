@@ -1,33 +1,46 @@
 import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'; // Added createUser and updateProfile
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Mail, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2, AlertCircle, User as UserIcon } from 'lucide-react'; // Added UserIcon
 
 export default function Login() {
+    const [isSignUp, setIsSignUp] = useState(false); // Toggle state
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [name, setName] = useState(''); // New state for name
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
     const auth = getAuth();
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => { // Renamed handleLogin to handleSubmit
         e.preventDefault();
         setLoading(true);
         setError('');
 
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            if (isSignUp) {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                if (name) {
+                    await updateProfile(userCredential.user, { displayName: name });
+                }
+            } else {
+                await signInWithEmailAndPassword(auth, email, password);
+            }
             navigate('/');
         } catch (err: any) {
             console.error(err);
-            if (err.code === 'auth/invalid-credential') {
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
                 setError('Invalid email or password.');
+            } else if (err.code === 'auth/email-already-in-use') {
+                setError('Email is already in use.');
+            } else if (err.code === 'auth/weak-password') {
+                setError('Password should be at least 6 characters.');
             } else if (err.code === 'auth/too-many-requests') {
                 setError('Too many failed attempts. Try again later.');
             } else {
-                setError('Failed to sign in. Please try again.');
+                setError(`Failed to ${isSignUp ? 'sign up' : 'sign in'}. Please try again.`);
             }
         } finally {
             setLoading(false);
@@ -54,11 +67,37 @@ export default function Login() {
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                             <span className="font-bold text-white text-xl">N</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">Welcome Back</h1>
-                        <p className="text-slate-400 text-sm mt-1">Sign in to access your NorthStar</p>
+                        <h1 className="text-2xl font-bold text-white tracking-tight">
+                            {isSignUp ? 'Join NorthStar' : 'Welcome Back'}
+                        </h1>
+                        <p className="text-slate-400 text-sm mt-1">
+                            {isSignUp ? 'Start your journey today' : 'Sign in to access your workspace'}
+                        </p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+
+                        {isSignUp && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                className="space-y-2"
+                            >
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider ml-1">Name</label>
+                                <div className="relative">
+                                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner"
+                                        placeholder="Your Name"
+                                        required={isSignUp}
+                                    />
+                                </div>
+                            </motion.div>
+                        )}
+
                         <div className="space-y-2">
                             <label className="text-xs font-medium text-slate-500 uppercase tracking-wider ml-1">Email</label>
                             <div className="relative">
@@ -108,15 +147,30 @@ export default function Login() {
                             {loading ? (
                                 <>
                                     <Loader2 size={18} className="animate-spin" />
-                                    Signing in...
+                                    {isSignUp ? 'Creating Account...' : 'Signing in...'}
                                 </>
                             ) : (
                                 <>
-                                    Sign In <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                                    {isSignUp ? 'Create Account' : 'Sign In'} <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                                 </>
                             )}
                         </button>
                     </form>
+
+                    <div className="mt-6 text-center">
+                        <p className="text-slate-500 text-sm">
+                            {isSignUp ? "Already have an account?" : "Don't have an account yet?"}{" "}
+                            <button
+                                onClick={() => {
+                                    setIsSignUp(!isSignUp);
+                                    setError('');
+                                }}
+                                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                            >
+                                {isSignUp ? "Sign In" : "Sign Up"}
+                            </button>
+                        </p>
+                    </div>
                 </div>
             </motion.div>
         </div>
