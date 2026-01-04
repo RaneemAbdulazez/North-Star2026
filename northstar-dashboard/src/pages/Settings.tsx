@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { Settings as SettingsIcon, Bell, Monitor, Database, Trash2, Download, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Monitor, Database, Trash2, Download, FileText, AlertTriangle, Loader2, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 interface UserSettings {
     darkMode: boolean;
@@ -73,7 +74,6 @@ export default function Settings() {
                 if (Notification.permission !== "granted") {
                     Notification.requestPermission();
                 }
-                // In a real app, you'd register a service worker here
             }
 
         } catch (e) {
@@ -283,8 +283,71 @@ export default function Settings() {
                         </div>
                     </div>
                 </Section>
+
+                {/* Migration Tool */}
+                <Section title="Data Migration" icon={<Database size={18} />}>
+                    <div className="flex items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/10 transition-colors">
+                        <div>
+                            <h4 className="text-purple-400 font-medium text-sm flex items-center gap-2"><Sparkles size={14} /> Migrate Prototype Data</h4>
+                            <p className="text-xs text-purple-500/70">Move "Prototype User" entries to your current account.</p>
+                        </div>
+                        <MigrationButton />
+                    </div>
+                </Section>
             </div>
         </div>
+    );
+}
+
+function MigrationButton() {
+    const [migrating, setMigrating] = useState(false);
+    const auth = getAuth();
+
+    const handleMigrate = async () => {
+        if (!auth.currentUser) return alert("Please sign in first.");
+        if (!confirm("This will copy all 'Prototype User' data to your current account. Continue?")) return;
+
+        setMigrating(true);
+        try {
+            const batch = writeBatch(db);
+            const q = query(collection(db, 'daily_journals'), where('userId', '==', 'dev_prototype_user_123'));
+            const snap = await getDocs(q);
+
+            if (snap.empty) {
+                alert("No prototype data found to migrate.");
+                return;
+            }
+
+            snap.docs.forEach(d => {
+                const data = d.data();
+                const newId = `${auth.currentUser!.uid}_${data.date}`; // format: uid_date
+                const newRef = doc(db, 'daily_journals', newId);
+
+                batch.set(newRef, {
+                    ...data,
+                    userId: auth.currentUser!.uid,
+                    migrated_at: new Date().toISOString()
+                });
+            });
+
+            await batch.commit();
+            alert(`Successfully migrated ${snap.size} entries!`);
+        } catch (e: any) {
+            console.error(e);
+            alert("Migration failed: " + e.message);
+        } finally {
+            setMigrating(false);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleMigrate}
+            disabled={migrating}
+            className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+        >
+            {migrating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Migrate
+        </button>
     );
 }
 

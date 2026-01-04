@@ -63,40 +63,50 @@ function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+import ProtectedRoute from './components/ProtectedRoute';
+import Login from './pages/Login';
+
 function AppRoutes() {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* Focus Mode - Standalone Layout */}
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Protected Focus Mode */}
         <Route path="/focus" element={
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="h-full"
-          >
-            <FocusMode />
-          </motion.div>
+          <ProtectedRoute>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full"
+            >
+              <FocusMode />
+            </motion.div>
+          </ProtectedRoute>
         } />
 
-        {/* Main App - With Sidebar Layout */}
+        {/* Protected Dashboard Routes */}
         <Route path="/*" element={
-          <Layout>
-            <Routes>
-              <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
-              <Route path="/daily-path" element={<PageWrapper><DailyPath /></PageWrapper>} />
-              <Route path="/planner" element={<PageWrapper><WeeklyPlanner /></PageWrapper>} />
-              <Route path="/journal" element={<PageWrapper><Journal /></PageWrapper>} />
-              <Route path="/projects" element={<PageWrapper><Projects /></PageWrapper>} />
-              <Route path="/habits" element={<PageWrapper><Habits /></PageWrapper>} />
-              <Route path="/strategy" element={<PageWrapper><Strategy /></PageWrapper>} />
-              <Route path="/logs" element={<PageWrapper><TimeLogs /></PageWrapper>} />
-              <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
-              <Route path="/analytics" element={<PageWrapper><Analytics /></PageWrapper>} />
-            </Routes>
-          </Layout>
+          <ProtectedRoute>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
+                <Route path="/daily-path" element={<PageWrapper><DailyPath /></PageWrapper>} />
+                <Route path="/planner" element={<PageWrapper><WeeklyPlanner /></PageWrapper>} />
+                <Route path="/journal" element={<PageWrapper><Journal /></PageWrapper>} />
+                <Route path="/projects" element={<PageWrapper><Projects /></PageWrapper>} />
+                <Route path="/habits" element={<PageWrapper><Habits /></PageWrapper>} />
+                <Route path="/strategy" element={<PageWrapper><Strategy /></PageWrapper>} />
+                <Route path="/logs" element={<PageWrapper><TimeLogs /></PageWrapper>} />
+                <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
+                <Route path="/analytics" element={<PageWrapper><Analytics /></PageWrapper>} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
         } />
       </Routes>
     </AnimatePresence>

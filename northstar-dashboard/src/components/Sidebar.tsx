@@ -14,7 +14,26 @@ interface SidebarProps {
     onClose?: () => void;
 }
 
+import { getAuth, signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
+    const auth = getAuth();
+    const navigate = useNavigate();
+    const [user, setUser] = useState(auth.currentUser);
+
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
+        return () => unsubscribe();
+    }, [auth]);
+
+    const handleSignOut = async () => {
+        await signOut(auth);
+        navigate('/login');
+    };
+
     return (
         <>
             {/* Mobile Backdrop */}
@@ -84,17 +103,31 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
                     <div className="mt-auto mb-4">
                         <NavItem to="/settings" icon={<Settings size={20} />} label="Settings" onClick={onClose} />
+
+                        <div className="mt-2 pt-2 border-t border-white/5">
+                            <button
+                                onClick={handleSignOut}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 group"
+                            >
+                                <LogOut size={20} />
+                                <span className="font-medium">Sign Out</span>
+                            </button>
+                        </div>
                     </div>
                 </nav>
 
                 <div className="p-4 m-4 rounded-2xl bg-gradient-to-br from-blue-900/20 to-transparent border border-blue-500/10">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-blue-200 ring-2 ring-blue-500/20">
-                            R
+                        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-blue-200 ring-2 ring-blue-500/20 overflow-hidden">
+                            {user?.photoURL ? (
+                                <img src={user.photoURL} alt="User" className="w-full h-full object-cover" />
+                            ) : (
+                                <span>{user?.email?.[0].toUpperCase() || 'U'}</span>
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-white truncate">Raneem</div>
-                            <div className="text-xs text-slate-400 truncate">Founder Mode</div>
+                            <div className="text-sm font-medium text-white truncate">{user?.displayName || 'User'}</div>
+                            <div className="text-xs text-slate-400 truncate">{user?.email || 'No Email'}</div>
                         </div>
                     </div>
                 </div>

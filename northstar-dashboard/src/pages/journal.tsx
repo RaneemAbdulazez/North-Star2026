@@ -52,17 +52,21 @@ export default function Journal() {
     // Load Data
     useEffect(() => {
         const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
-            // PM DIRECTIVE: Mock User Fallback
-            const activeUser = currentUser || { uid: "dev_prototype_user_123" } as User;
-            setUser(activeUser);
+            // AUTH CHECK: Strict
+            if (!currentUser) {
+                setUser(null);
+                setLoading(false);
+                return;
+            }
+            setUser(currentUser);
 
-            if (activeUser) {
+            if (currentUser) {
                 setFetchingToday(true);
 
                 // 1. Fetch Today's Entry (Independent of History Index)
                 try {
                     const todayStr = getLocalISODate();
-                    const docId = `${activeUser.uid}_${todayStr}`;
+                    const docId = `${currentUser.uid}_${todayStr}`;
                     console.log("Fetching journal for:", docId);
 
                     const docRef = doc(db, 'daily_journals', docId);
@@ -102,7 +106,7 @@ export default function Journal() {
                 try {
                     const q = query(
                         collection(db, 'daily_journals'),
-                        where('userId', '==', activeUser.uid),
+                        where('userId', '==', currentUser.uid),
                         orderBy('date', 'desc'),
                         limit(100)
                     );
@@ -219,12 +223,7 @@ export default function Journal() {
     return (
         <div className="max-w-[1200px] mx-auto space-y-8 pb-20 relative">
 
-            {/* Developer Mode Banner */}
-            {!auth.currentUser && (
-                <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-4 py-2 rounded-lg text-xs font-mono text-center">
-                    ⚠️ PROTOTYPE MODE: Using Mock User & Local Data
-                </div>
-            )}
+
 
             {/* Header & Tabs */}
             <header className="flex flex-col md:flex-row md:items-end justify-between border-b border-white/5 pb-6 gap-4">

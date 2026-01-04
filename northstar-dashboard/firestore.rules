@@ -20,12 +20,14 @@ service cloud.firestore {
 
     // --- NEW: NorthStar Journaling & Cyclist System ---
     match /daily_journals/{journalId} {
-      // Allow read/write for the specific Mock User ID used in development
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId 
-                         || request.resource.data.userId == "dev_prototype_user_123" 
-                         || resource.data.userId == "dev_prototype_user_123";
+      // Allow read/write if the user owns the data OR if accessing the legacy prototype data (Migration)
+      allow read, write: if request.auth != null && (
+         request.auth.uid == resource.data.userId || 
+         resource.data.userId == "dev_prototype_user_123" ||
+         request.resource.data.userId == "dev_prototype_user_123" // For writing back if necessary (unlikely)
+      );
       
-      // Also allow creation if authenticated (standard flow)
+      // Allow creation if authenticated
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
     
