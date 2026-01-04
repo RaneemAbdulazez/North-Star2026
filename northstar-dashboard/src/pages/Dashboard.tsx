@@ -143,6 +143,13 @@ export default function Dashboard() {
             {/* DAILY PROGRESS CARD (New Top Section) */}
             <DailyProgressCard projectsList={projects} />
 
+            {/* Quick Journal Link (Minimal) */}
+            <div className="flex justify-end">
+                <a href="/journal" className="text-xs font-bold text-slate-500 hover:text-cyan-400 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                    <BookOpen size={14} /> Open Journal
+                </a>
+            </div>
+
             {/* NORTH STAR STRATEGY ORBIT */}
             <section className="relative">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">

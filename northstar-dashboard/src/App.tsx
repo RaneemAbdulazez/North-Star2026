@@ -13,6 +13,7 @@ import FocusMode from './pages/FocusMode';
 import { Menu } from 'lucide-react';
 import { useState } from 'react';
 import WeeklyPlanner from './pages/WeeklyPlanner';
+import Journal from './pages/Journal';
 
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
@@ -87,6 +88,7 @@ function AppRoutes() {
               <Route path="/" element={<PageWrapper><Dashboard /></PageWrapper>} />
               <Route path="/daily-path" element={<PageWrapper><DailyPath /></PageWrapper>} />
               <Route path="/planner" element={<PageWrapper><WeeklyPlanner /></PageWrapper>} />
+              <Route path="/journal" element={<PageWrapper><Journal /></PageWrapper>} />
               <Route path="/projects" element={<PageWrapper><Projects /></PageWrapper>} />
               <Route path="/habits" element={<PageWrapper><Habits /></PageWrapper>} />
               <Route path="/strategy" element={<PageWrapper><Strategy /></PageWrapper>} />

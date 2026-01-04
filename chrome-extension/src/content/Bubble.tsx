@@ -160,7 +160,8 @@ export const Bubble: React.FC = () => {
 
     // Percentage Display Logic
     // Percentage Display Logic (Hardcoded 8h target = 480m)
-    const progressPercent = dailyProgress > 0 ? Math.min((dailyProgress / 8.0) * 100, 100) : 0;
+    const rawPercent = dailyProgress > 0 ? Math.min((dailyProgress / 8.0) * 100, 100) : 0;
+    const progressPercent = (isNaN(rawPercent) || !isFinite(rawPercent)) ? 0 : rawPercent;
 
     return (
         <>

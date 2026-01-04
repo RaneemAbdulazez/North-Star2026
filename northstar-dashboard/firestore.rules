@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper to check if user is authenticated and matches the requested resource
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Existing Collections (Assuming defaults, but making them explicit/safe)
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    match /work_sessions/{sessionId} {
+      // Allow read/write if the resource's userId matches auth uid
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // --- NEW: NorthStar Journaling & Cyclist System ---
+    match /daily_journals/{journalId} {
+      // 1. Strictly Private: Only the creator can read or write
+      // 2. Data Integrity: Ensure 'userId' field matches the Auth ID on creation
+      
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+  }
+}
