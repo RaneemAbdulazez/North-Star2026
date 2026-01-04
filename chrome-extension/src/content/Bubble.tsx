@@ -29,13 +29,28 @@ export const Bubble: React.FC = () => {
         let isMounted = true;
 
         const fetchState = async () => {
+            // 4. Context Check & Error Handling: Stop all execution if context is invalidated
+            if (!chrome.runtime?.id) {
+                console.warn("NorthStar: Extension context invalidated. Stopping polling.");
+                clearInterval(intervalId);
+                return;
+            }
+
+            // 2. Fix Event Loop Clogging: Don't run heavy logic if tab is hidden
+            if (document.hidden) {
+                return;
+            }
+
             const res = await safeSendMessage({ action: "GET_STATUS" });
 
             if (!isMounted) return;
 
             // If null, it means context was invalidated or error occurred
             if (!res) {
-                clearInterval(intervalId); // STOP POLLING IMMEDIATELY
+                // Double check if it was due to invalidation
+                if (!chrome.runtime?.id) {
+                    clearInterval(intervalId);
+                }
                 return;
             }
 
@@ -66,7 +81,8 @@ export const Bubble: React.FC = () => {
         };
 
         fetchState();
-        intervalId = setInterval(fetchState, 5000); // Sync every 5s
+        // 2. Fix Event Loop Clogging: Change frequency to every 20 seconds
+        intervalId = setInterval(fetchState, 20000);
 
         return () => {
             isMounted = false;
@@ -79,6 +95,9 @@ export const Bubble: React.FC = () => {
         let interval: NodeJS.Timeout;
         if (session.status === 'active' && session.startTime) {
             interval = setInterval(() => {
+                // Performance: Check tab visibility to avoid unnecessary renders
+                if (document.hidden) return;
+
                 const now = Date.now();
                 setElapsed(Math.floor((now - session.startTime!) / 1000));
             }, 1000);
@@ -89,6 +108,7 @@ export const Bubble: React.FC = () => {
 
     // Handlers
     const handleControl = (action: string) => {
+        if (!chrome.runtime?.id) return;
         safeSendMessage({ action });
     };
 
