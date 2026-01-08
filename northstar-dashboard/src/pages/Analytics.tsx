@@ -30,6 +30,42 @@ interface Habit {
 
 const COLORS = ['#3B82F6', '#F59E0B', '#06B6D4', '#EF4444'];
 
+/**
+ * Calculates the remaining budget based on calendar time decay.
+ * Deducts 8 hours for every day that has passed (excluding Sundays).
+ */
+function calculateTimeDecay(startDate: Date, totalBudget: number): { remainingHours: number; percentageUsed: number; workingDaysPassed: number } {
+    const today = new Date();
+
+    // Normalize both dates to start of day for accurate day counting
+    const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    let workingDaysPassed = 0;
+    const HOURS_PER_DAY = 8;
+
+    // Iterate through each day from start to today (inclusive)
+    const current = new Date(start);
+    while (current <= end) {
+        // Check if current day is NOT a Sunday (getDay() === 0 means Sunday)
+        if (current.getDay() !== 0) {
+            workingDaysPassed++;
+        }
+        // Move to next day
+        current.setDate(current.getDate() + 1);
+    }
+
+    const hoursUsed = workingDaysPassed * HOURS_PER_DAY;
+    const remainingHours = Math.max(0, totalBudget - hoursUsed);
+    const percentageUsed = Math.min(100, (hoursUsed / totalBudget) * 100);
+
+    return {
+        remainingHours,
+        percentageUsed,
+        workingDaysPassed
+    };
+}
+
 export default function Analytics() {
     const [loading, setLoading] = useState(true);
 
@@ -163,9 +199,13 @@ export default function Analytics() {
     const weeklySpent = weeklyMomentum.reduce((acc, d) => acc + d.hours, 0);
     const WEEKLY_TARGET = 48;
 
-    const remaining = Math.max(0, QUARTER_BUDGET - totalSpent);
+    // Time Decay Model: Calculate remaining budget based on calendar days passed
+    const Q1_START_DATE = new Date(2026, 0, 1); // January 1st, 2026
+    const timeDecay = calculateTimeDecay(Q1_START_DATE, QUARTER_BUDGET);
+
+    const remaining = timeDecay.remainingHours;
     // Percentage spent (capped at 100%)
-    const spentPct = Math.min(1, totalSpent / QUARTER_BUDGET);
+    const spentPct = timeDecay.percentageUsed / 100;
 
     // Gauge Visualization:
     // If we want to show "Spent" (filling up), full bar = 100% spent.
